@@ -1,0 +1,27 @@
+{
+  "name": "disruption-fb-bot",
+  "description": "TfL Disruption FB Messenger Bot",
+  "main": "src/Bot.purs",
+  "authors": [
+    "Pascal Hartig <i@passy.me>"
+  ],
+  "license": "ISC",
+  "keywords": [
+    "tfl",
+    "tube"
+  ],
+  "homepage": "https://github.com/passy/disruption-fb-bot",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "devDependencies": {
+    "purescript-prelude": "^1.0.1",
+    "purescript-debug": "^1.0.0",
+    "purescript-console": "^1.0.0"
+  }
+}

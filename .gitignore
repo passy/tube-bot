@@ -1,2 +1,5 @@
 node_modules
 config/default.json
+bower_components/
+output/
+npm-debug.log

@@ -7,6 +7,9 @@ const rethink = require('rethinkdbdash');
 
 const config = require('./appconfig');
 const messenger = require('./messenger');
+const bot = require('./output/Bot');
+
+bot.handleMessage();
 
 const app = express();
 app.set('port', process.env.PORT || 5000);
