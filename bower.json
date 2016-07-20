@@ -22,6 +22,7 @@
   "devDependencies": {
     "purescript-prelude": "^1.0.1",
     "purescript-debug": "^1.0.0",
-    "purescript-console": "^1.0.0"
+    "purescript-console": "^1.0.0",
+    "purescript-generics": "^1.0.1"
   }
 }

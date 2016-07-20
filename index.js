@@ -9,8 +9,6 @@ const config = require('./appconfig');
 const messenger = require('./messenger');
 const bot = require('./output/Bot');
 
-bot.handleMessage();
-
 const app = express();
 app.set('port', process.env.PORT || 5000);
 app.set('view engine', 'ejs');
@@ -65,6 +63,7 @@ app.post('/webhook', (req, res) => {
                     messenger.receivedAuthentication(messagingEvent);
                 } else if (messagingEvent.message) {
                     messenger.receivedMessage(r, messagingEvent);
+                    bot.handleReceivedMessage(messagingEvent)();
                 } else if (messagingEvent.delivery) {
                     messenger.receivedDeliveryConfirmation(messagingEvent);
                 } else if (messagingEvent.postback) {

@@ -78,6 +78,7 @@ exports.receivedAuthentication = event => {
  *
  */
 const receivedMessage = exports.receivedMessage = (r, event) => {
+    console.log(event);
     const senderID = event.sender.id;
     const recipientID = event.recipient.id;
     const timeOfMessage = event.timestamp;
