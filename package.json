@@ -1,0 +1,44 @@
+{
+  "name": "disruption-fb-bot",
+  "version": "0.0.1",
+  "description": "TfL Disruption FB Messenger Bot",
+  "main": "index.js",
+  "dependencies": {
+    "babel-cli": "^6.11.4",
+    "body-parser": "^1.15.2",
+    "config": "^1.21.0",
+    "crypto": "0.0.3",
+    "express": "^4.14.0",
+    "https": "^1.0.0",
+    "request": "^2.73.0",
+    "rethinkdbdash": "^2.3.17"
+  },
+  "devDependencies": {
+    "xo": "^0.16.0"
+  },
+  "scripts": {
+    "run": "babel-node index.js",
+    "test": "xo"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/passy/disruption-fb-bot.git"
+  },
+  "keywords": [
+    "tfl",
+    "tube"
+  ],
+  "author": "Pascal Hartig <i@passy.me>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/passy/disruption-fb-bot/issues"
+  },
+  "xo": {
+    "space": 4,
+    "rules": {
+      "no-var": "error",
+      "no-negated-condition": 0
+    }
+  },
+  "homepage": "https://github.com/passy/disruption-fb-bot#readme"
+}
