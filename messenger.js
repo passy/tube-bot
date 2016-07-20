@@ -77,7 +77,7 @@ exports.receivedAuthentication = event => {
  * then we'll simply confirm that we've received the attachment.
  *
  */
-const receivedMessage = exports.receivedMessage = event => {
+const receivedMessage = exports.receivedMessage = (r, event) => {
     const senderID = event.sender.id;
     const recipientID = event.recipient.id;
     const timeOfMessage = event.timestamp;
@@ -166,6 +166,10 @@ const receivedMessage = exports.receivedMessage = event => {
 
             case 'account linking':
                 sendAccountLinking(senderID);
+                break;
+
+            case 'subscribe':
+                subscribeUser(r, senderID);
                 break;
 
             default:
@@ -655,4 +659,30 @@ const sendAccountLinking = exports.sendAccountLinking = recipientId => {
     };
 
     callSendAPI(messageData);
+};
+
+/*
+ * Send a message with the account linking call-to-action
+ *
+ */
+const subscribeUser = exports.subscribeUser = (r, recipientId) => {
+    r.table('messenger_subscriptions')
+        .insert(
+            {recipient_id: recipientId, status: 'subscribed'},
+            {conflict: 'replace'})
+        .run(err => {
+            if (err) {
+                throw err;
+            }
+            const messageData = {
+                recipient: {
+                    id: recipientId
+                },
+                message: {
+                    text: 'You are subscribed. Hurray!'
+                }
+            };
+
+            callSendAPI(messageData);
+        });
 };

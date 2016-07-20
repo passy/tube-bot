@@ -61,7 +61,7 @@ app.post('/webhook', (req, res) => {
                 if (messagingEvent.optin) {
                     messenger.receivedAuthentication(messagingEvent);
                 } else if (messagingEvent.message) {
-                    messenger.receivedMessage(messagingEvent);
+                    messenger.receivedMessage(r, messagingEvent);
                 } else if (messagingEvent.delivery) {
                     messenger.receivedDeliveryConfirmation(messagingEvent);
                 } else if (messagingEvent.postback) {
@@ -143,10 +143,25 @@ app.listen(app.get('port'), function () {
             }
 
             if (row !== null) {
-                console.log(row.new_val);
+                sendDisruptionNotification(row.new_val);
             }
         });
     });
 });
+
+function sendDisruptionNotification(disruption) {
+    r.table('messenger_subscriptions')
+     .filter(r.row('status').eq('subscribed'))
+     .run((err, cursor) => {
+         if (err) {
+             throw err;
+         }
+
+         cursor.forEach(row => {
+             messenger.sendTextMessage(
+                 row.recipient_id, `New Disruption Alert on ${disruption.name} line!`);
+         });
+     });
+}
 
 module.exports = app;
