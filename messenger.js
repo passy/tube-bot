@@ -172,6 +172,10 @@ const receivedMessage = exports.receivedMessage = (r, event) => {
                 subscribeUser(r, senderID);
                 break;
 
+            case 'unsubscribe':
+                unsubscribeUser(r, senderID);
+                break;
+
             default:
                 sendTextMessage(senderID, messageText);
         }
@@ -662,8 +666,7 @@ const sendAccountLinking = exports.sendAccountLinking = recipientId => {
 };
 
 /*
- * Send a message with the account linking call-to-action
- *
+ * Subscribe a user to all alerts.
  */
 const subscribeUser = exports.subscribeUser = (r, recipientId) => {
     r.table('messenger_subscriptions')
@@ -674,15 +677,23 @@ const subscribeUser = exports.subscribeUser = (r, recipientId) => {
             if (err) {
                 throw err;
             }
-            const messageData = {
-                recipient: {
-                    id: recipientId
-                },
-                message: {
-                    text: 'You are subscribed. Hurray!'
-                }
-            };
+            sendTextMessage(recipientId, 'You are subscribed. Hurray!');
+        });
+};
 
-            callSendAPI(messageData);
+/*
+ * Unsubscribe a user from all alerts.
+ */
+const unsubscribeUser = exports.unsubscribeUser = (r, recipientId) => {
+    r.table('messenger_subscriptions')
+        .insert(
+            {recipient_id: recipientId, status: 'unsubscribed'},
+            {conflict: 'replace'})
+        .run(err => {
+            if (err) {
+                throw err;
+            }
+            sendTextMessage(recipientId,
+                 'Sorry for the noise. You\'re unsubscribed.');
         });
 };
