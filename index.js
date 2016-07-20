@@ -113,10 +113,6 @@ app.post('/webhook', (req, res) => {
 });
 
 function constEq(a, b, minComp) {
-    if (!Buffer.isBuffer(a) || !Buffer.isBuffer(b)) {
-        throw new TypeError('Arguments must be buffers');
-    }
-
     const aLen = a.length;
     const bLen = b.length;
     const len = Math.max(aLen, bLen, minComp || 0);

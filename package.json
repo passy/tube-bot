@@ -17,7 +17,8 @@
     "xo": "^0.16.0"
   },
   "scripts": {
-    "run": "babel-node index.js",
+    "start": "babel-node index.js",
+    "watch": "ls *.js | entr -r -- babel-node index.js",
     "test": "xo"
   },
   "repository": {
