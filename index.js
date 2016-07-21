@@ -134,27 +134,27 @@ function verifyRequestSignature(req, res, buf) {
 app.listen(app.get('port'), function () {
     console.log('Node app is running on port', app.get('port'));
 
-    r.table('lines').changes().run((err, cursor) => {
-        if (err) {
-            throw err;
-        }
-
-        cursor.each((err, row) => {
+    r.table('lines')
+        .filter(r.row('level').ge(1))
+        .changes()
+        .run((err, cursor) => {
             if (err) {
-                return;
+                throw err;
             }
 
-            if (row !== null) {
-                sendDisruptionNotification(row.new_val);
-            }
+            cursor.each((err, row) => {
+                if (err) {
+                    return;
+                }
+
+                if (row !== null && row.new_val !== null) {
+                    sendDisruptionNotification(row.new_val);
+                }
+            });
         });
-    });
 });
 
 function sendDisruptionNotification(disruption) {
-    if (disruption.level <= 0) {
-        return;
-    }
     r.table('messenger_subscriptions')
      .filter(r.row('status').eq('subscribed').and(r.row('line').eq(disruption.name)))
      .run((err, cursor) => {

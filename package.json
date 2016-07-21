@@ -18,7 +18,7 @@
   },
   "scripts": {
     "start": "babel-node index.js",
-    "watch": "ls *.js | entr -r -- babel-node index.js",
+    "watch": "ls *.js output/**/*.js | entr -r -- babel-node index.js",
     "test": "xo"
   },
   "repository": {

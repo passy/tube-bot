@@ -2,8 +2,14 @@ module Bot where
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log, logShow)
-import Data.Generic (class Generic, gShow)
+import Control.Monad.Eff.Console (CONSOLE, logShow)
+import Data.Generic (class Generic, gShow, gEq)
+import Text.Parsing.StringParser (Parser, ParseError(..), try, runParser)
+import Text.Parsing.StringParser.String as S
+import Data.String as String
+
+type SequenceNumber = Int
+type MessageId = String
 
 newtype MessagingParticipant = MessagingParticipant { id :: Int }
 
@@ -13,8 +19,8 @@ instance showMessagingParticipant :: Show MessagingParticipant where
   show = gShow
 
 newtype Message = Message
-  { mid :: String
-  , seq :: Int
+  { mid :: MessageId
+  , seq :: SequenceNumber
   , text :: String
   }
 
@@ -35,7 +41,33 @@ derive instance genericMessagingEvent :: Generic MessagingEvent
 instance showMessagingEvent :: Show MessagingEvent where
   show = gShow
 
+data MessageResponse = RspNoop
+
+derive instance genericMessageResponse :: Generic MessageResponse
+
+instance showMessageResponse :: Show MessageResponse where
+  show = gShow
+
+instance eqMessageResponse :: Eq MessageResponse where
+  eq = gEq
+
+commandParser :: Parser Command
+commandParser =
+  S.string "subscribe" *> pure (CmdSubscribe { channel: "wat", recipientId: MessagingParticipant { id: 1 } })
+
+data Command = CmdSubscribe { channel :: String
+                            , recipientId :: MessagingParticipant }
+
+derive instance genericCommand :: Generic Command
+
+instance showCommand :: Show Command where
+  show = gShow
+
+instance eqCommand :: Eq Command where
+  eq = gEq
+
 handleReceivedMessage :: MessagingEvent -> forall e. Eff (console :: CONSOLE | e) Unit
-handleReceivedMessage e = do
-    log "Hello, PureScript!"
-    logShow e
+handleReceivedMessage (MessagingEvent e) = do
+  let txt ({ message: Message { text: text } }) = text
+  let res = runParser commandParser (txt e)
+  logShow res
