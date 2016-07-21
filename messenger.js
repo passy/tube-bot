@@ -113,10 +113,11 @@ const receivedMessage = exports.receivedMessage = (r, event) => {
     }
 
     if (messageText) {
+        const cmd = messageText.split(/\s/);
         // If we receive a text message, check to see if it matches any special
         // keywords and send back the corresponding example. Otherwise, just echo
         // the text we received.
-        switch (messageText) {
+        switch (cmd[0]) {
             case 'image':
                 sendImageMessage(senderID);
                 break;
@@ -149,32 +150,32 @@ const receivedMessage = exports.receivedMessage = (r, event) => {
                 sendReceiptMessage(senderID);
                 break;
 
-            case 'quick reply':
+            case 'quickreply':
                 sendQuickReply(senderID);
                 break;
 
-            case 'read receipt':
+            case 'readreceipt':
                 sendReadReceipt(senderID);
                 break;
 
-            case 'typing on':
+            case 'typingon':
                 sendTypingOn(senderID);
                 break;
 
-            case 'typing off':
+            case 'typingoff':
                 sendTypingOff(senderID);
                 break;
 
-            case 'account linking':
+            case 'accountlinking':
                 sendAccountLinking(senderID);
                 break;
 
             case 'subscribe':
-                subscribeUser(r, senderID);
+                subscribeUser(r, senderID, cmd[1]);
                 break;
 
             case 'unsubscribe':
-                unsubscribeUser(r, senderID);
+                unsubscribeUser(r, senderID, cmd[1]);
                 break;
 
             default:
@@ -669,32 +670,32 @@ const sendAccountLinking = exports.sendAccountLinking = recipientId => {
 /*
  * Subscribe a user to all alerts.
  */
-const subscribeUser = exports.subscribeUser = (r, recipientId) => {
+const subscribeUser = exports.subscribeUser = (r, recipientId, line) => {
     r.table('messenger_subscriptions')
         .insert(
-            {recipient_id: recipientId, status: 'subscribed'},
-            {conflict: 'replace'})
-        .run(err => {
-            if (err) {
-                throw err;
-            }
-            sendTextMessage(recipientId, 'You are subscribed. Hurray!');
-        });
-};
-
-/*
- * Unsubscribe a user from all alerts.
- */
-const unsubscribeUser = exports.unsubscribeUser = (r, recipientId) => {
-    r.table('messenger_subscriptions')
-        .insert(
-            {recipient_id: recipientId, status: 'unsubscribed'},
+            {recipient_id: recipientId, status: 'subscribed', line: line},
             {conflict: 'replace'})
         .run(err => {
             if (err) {
                 throw err;
             }
             sendTextMessage(recipientId,
-                 'Sorry for the noise. You\'re unsubscribed.');
+                `You're now getting updates for ${line}.`);
+        });
+};
+
+/*
+ * Unsubscribe a user from all alerts.
+ */
+const unsubscribeUser = exports.unsubscribeUser = (r, recipientId, line) => {
+    r.table('messenger_subscriptions')
+        .get(recipientId)
+        .update({status: 'unsubscribed', line: line})
+        .run(err => {
+            if (err) {
+                throw err;
+            }
+            sendTextMessage(recipientId,
+                 `Sorry for the noise. You're now unsubscribed from ${line} updates.`);
         });
 };

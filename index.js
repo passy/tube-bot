@@ -134,7 +134,7 @@ function verifyRequestSignature(req, res, buf) {
 app.listen(app.get('port'), function () {
     console.log('Node app is running on port', app.get('port'));
 
-    r.table('disruptions').changes().run((err, cursor) => {
+    r.table('lines').changes().run((err, cursor) => {
         if (err) {
             throw err;
         }
@@ -152,8 +152,11 @@ app.listen(app.get('port'), function () {
 });
 
 function sendDisruptionNotification(disruption) {
+    if (disruption.level <= 0) {
+        return;
+    }
     r.table('messenger_subscriptions')
-     .filter(r.row('status').eq('subscribed'))
+     .filter(r.row('status').eq('subscribed').and(r.row('line').eq(disruption.name)))
      .run((err, cursor) => {
          if (err) {
              throw err;
