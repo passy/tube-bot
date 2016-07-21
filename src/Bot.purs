@@ -1,12 +1,15 @@
 module Bot where
 
 import Prelude
+import Data.String as String
+import Text.Parsing.StringParser.Combinators as Parser
+import Text.Parsing.StringParser.String as StringParser
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, logShow)
 import Data.Generic (class Generic, gShow, gEq)
-import Text.Parsing.StringParser (Parser, ParseError(..), try, runParser)
-import Text.Parsing.StringParser.String as S
-import Data.String as String
+import Data.List (List, toUnfoldable)
+import Text.Parsing.StringParser (Parser, runParser)
+import Text.Parsing.StringParser.String (skipSpaces)
 
 type SequenceNumber = Int
 type MessageId = String
@@ -51,9 +54,15 @@ instance showMessageResponse :: Show MessageResponse where
 instance eqMessageResponse :: Eq MessageResponse where
   eq = gEq
 
-commandParser :: Parser Command
-commandParser =
-  S.string "subscribe" *> pure (CmdSubscribe { channel: "wat", recipientId: MessagingParticipant { id: 1 } })
+listToString :: List Char -> String
+listToString = String.fromCharArray <<< toUnfoldable
+
+commandParser :: MessagingParticipant -> Parser Command
+commandParser rid = do
+  void $ StringParser.string "subscribe"
+  skipSpaces
+  channel <- listToString <$> Parser.many1 StringParser.anyLetter
+  pure $ CmdSubscribe { channel: channel, recipientId: rid }
 
 data Command = CmdSubscribe { channel :: String
                             , recipientId :: MessagingParticipant }
@@ -69,5 +78,5 @@ instance eqCommand :: Eq Command where
 handleReceivedMessage :: MessagingEvent -> forall e. Eff (console :: CONSOLE | e) Unit
 handleReceivedMessage (MessagingEvent e) = do
   let txt ({ message: Message { text: text } }) = text
-  let res = runParser commandParser (txt e)
+  let res = runParser (commandParser e.sender) (txt e)
   logShow res
