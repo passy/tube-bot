@@ -25,6 +25,7 @@
     "purescript-console": "^1.0.0",
     "purescript-generics": "^1.0.1",
     "purescript-strings": "^1.1.0",
-    "purescript-string-parsers": "^1.0.1"
+    "purescript-string-parsers": "^1.0.1",
+    "purescript-exceptions": "^1.0.0"
   }
 }
