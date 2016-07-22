@@ -45,7 +45,7 @@ instance showMessagingEvent :: Show MessagingEvent where
   show = gShow
 
 data MessageResponse = RspNoop
-                     | RspText { text :: String, recipientId :: MessagingParticipant }
+                     | RspText { text :: String, recipient :: MessagingParticipant }
 
 derive instance genericMessageResponse :: Generic MessageResponse
 
@@ -59,7 +59,7 @@ instance encodeJsonMessageResponse :: J.EncodeJson MessageResponse where
   encodeJson RspNoop
     = J.jsonEmptyObject
 
-  encodeJson (RspText { text: text, recipientId: (MessagingParticipant { id: id }) })
+  encodeJson (RspText { text: text, recipient: (MessagingParticipant { id: id }) })
     = "recipient" := ("id" := id ~> J.jsonEmptyObject)
    ~> "message" := ("text" := text ~> J.jsonEmptyObject)
    ~> J.jsonEmptyObject

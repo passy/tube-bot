@@ -62,7 +62,7 @@ app.post('/webhook', (req, res) => {
                 if (messagingEvent.optin) {
                     messenger.receivedAuthentication(messagingEvent);
                 } else if (messagingEvent.message) {
-                    Bot.handleReceivedMessage(messagingEvent)();
+                    Bot.handleReceivedMessage({pageAccessToken: APP_CONFIG.PAGE_ACCESS_TOKEN})(messagingEvent)();
                 } else if (messagingEvent.delivery) {
                     messenger.receivedDeliveryConfirmation(messagingEvent);
                 } else if (messagingEvent.postback) {
