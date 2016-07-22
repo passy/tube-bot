@@ -3,12 +3,18 @@ module Bot.Types where
 import Prelude
 
 import Control.Alt ((<|>))
+import Data.Argonaut ((~>), (:=))
 import Data.Generic (class Generic, gShow, gEq)
+import Network.HTTP.Affjax.Request (toRequest, class Requestable)
+
+import Data.Argonaut as J
 
 type SequenceNumber = Int
 type MessageId = String
 
 newtype MessagingParticipant = MessagingParticipant { id :: Int }
+
+newtype MessengerConfig = MessengerConfig { pageAccessToken :: String }
 
 derive instance genericMessagingParticipant :: Generic MessagingParticipant
 
@@ -39,6 +45,7 @@ instance showMessagingEvent :: Show MessagingEvent where
   show = gShow
 
 data MessageResponse = RspNoop
+                     | RspText { text :: String, recipientId :: MessagingParticipant }
 
 derive instance genericMessageResponse :: Generic MessageResponse
 
@@ -47,6 +54,18 @@ instance showMessageResponse :: Show MessageResponse where
 
 instance eqMessageResponse :: Eq MessageResponse where
   eq = gEq
+
+instance encodeJsonMessageResponse :: J.EncodeJson MessageResponse where
+  encodeJson RspNoop
+    = J.jsonEmptyObject
+
+  encodeJson (RspText { text: text, recipientId: (MessagingParticipant { id: id }) })
+    = "recipient" := ("id" := id ~> J.jsonEmptyObject)
+   ~> "message" := ("text" := text ~> J.jsonEmptyObject)
+   ~> J.jsonEmptyObject
+
+instance requestableMessageResponse :: Requestable MessageResponse where
+  toRequest = toRequest <<< J.encodeJson
 
 data Command = CmdSubscribe { channel :: String }
              | CmdUnsubscribe { channel :: String }

@@ -26,6 +26,10 @@
     "purescript-generics": "^1.0.1",
     "purescript-strings": "^1.1.0",
     "purescript-string-parsers": "^1.0.1",
-    "purescript-exceptions": "^1.0.0"
+    "purescript-exceptions": "^1.0.0",
+    "purescript-affjax": "^1.1.0",
+    "purescript-aff": "^1.0.0",
+    "purescript-argonaut-core": "^1.0.0",
+    "purescript-argonaut": "^1.0.0"
   }
 }
