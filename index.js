@@ -7,7 +7,7 @@ const rethink = require('rethinkdbdash');
 
 const config = require('./appconfig');
 const messenger = require('./messenger');
-const bot = require('./output/Bot');
+const Bot = require('./output/Bot');
 
 const app = express();
 app.set('port', process.env.PORT || 5000);
@@ -62,8 +62,7 @@ app.post('/webhook', (req, res) => {
                 if (messagingEvent.optin) {
                     messenger.receivedAuthentication(messagingEvent);
                 } else if (messagingEvent.message) {
-                    messenger.receivedMessage(r, messagingEvent);
-                    bot.handleReceivedMessage(messagingEvent)();
+                    Bot.handleReceivedMessage(messagingEvent)();
                 } else if (messagingEvent.delivery) {
                     messenger.receivedDeliveryConfirmation(messagingEvent);
                 } else if (messagingEvent.postback) {

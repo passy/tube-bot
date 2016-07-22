@@ -44,4 +44,4 @@ handleReceivedMessage (Bot.MessagingEvent e) = do
     Right cmd -> evalCommand cmd
 
 evalCommand :: forall e. Bot.Command -> Eff e Unit
-evalCommand = unsafeThrow "not implemented"
+evalCommand cmd = unsafeThrow "not implemented"
