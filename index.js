@@ -3,7 +3,6 @@
 const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const express = require('express');
-const rethink = require('rethinkdbdash');
 
 const config = require('./appconfig');
 const messenger = require('./messenger');
@@ -18,7 +17,6 @@ app.use(express.static('public'));
 config.validate();
 
 const APP_CONFIG = config.APP_CONFIG;
-const r = rethink(APP_CONFIG.RETHINKDB);
 
 /*
  * Use your own validation token. Check that the token used in the Webhook
@@ -133,39 +131,7 @@ function verifyRequestSignature(req, res, buf) {
 app.listen(app.get('port'), function () {
     console.log('Node app is running on port', app.get('port'));
 
-    r.table('lines')
-        .filter(r.row('level').ge(1))
-        .changes()
-        .run((err, cursor) => {
-            if (err) {
-                throw err;
-            }
-
-            cursor.each((err, row) => {
-                if (err) {
-                    return;
-                }
-
-                if (row !== null && row.new_val !== null) {
-                    sendDisruptionNotification(row.new_val);
-                }
-            });
-        });
+    Bot.listen();
 });
-
-function sendDisruptionNotification(disruption) {
-    r.table('messenger_subscriptions')
-     .filter(r.row('status').eq('subscribed').and(r.row('line').eq(disruption.name)))
-     .run((err, cursor) => {
-         if (err) {
-             throw err;
-         }
-
-         cursor.forEach(row => {
-             messenger.sendTextMessage(
-                 row.recipient_id, `New Disruption Alert on ${disruption.name} line!`);
-         });
-     });
-}
 
 module.exports = app;

@@ -6,6 +6,8 @@ import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
+import Bot.DB as DB
+
 import Bot.Types (MessageResponse(RspNoop))
 import Control.Alt ((<|>))
 import Control.Monad.Aff (launchAff)
@@ -71,3 +73,10 @@ callSendAPI (Bot.MessengerConfig config) msg =
                                   , url = url <> query
                                   , content = Just msg }
   in Affjax.affjax req
+
+listen
+  :: forall e.
+     Bot.MessengerConfig
+  -> Eff (rethinkdb :: DB.RETHINKDB | e) Unit
+listen config =
+  unsafeThrow "wat"
