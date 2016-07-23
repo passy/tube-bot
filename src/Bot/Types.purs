@@ -12,6 +12,17 @@ import Data.Argonaut as J
 type SequenceNumber = Int
 type MessageId = String
 
+newtype LineStatusRow = LineStatusRow
+  { name :: String
+  , description :: String
+  , disruptions :: Array Disruption
+  , level :: Int }
+
+newtype Disruption = Disruption
+  { level :: Int
+  , summary :: String
+  , stops :: Array String }
+
 newtype MessagingParticipant = MessagingParticipant { id :: Int }
 
 newtype MessengerConfig = MessengerConfig { pageAccessToken :: String }

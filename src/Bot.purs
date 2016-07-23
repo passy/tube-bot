@@ -1,18 +1,18 @@
 module Bot where
 
 import Prelude
+import Bot.DB as DB
 import Bot.Types as Bot
 import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
-import Bot.DB as DB
-
 import Bot.Types (MessageResponse(RspNoop))
 import Control.Alt ((<|>))
 import Control.Monad.Aff (launchAff)
+import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (info, CONSOLE, log)
+import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Either (Either(Left, Right))
@@ -77,6 +77,7 @@ callSendAPI (Bot.MessengerConfig config) msg =
 listen
   :: forall e.
      Bot.MessengerConfig
-  -> Eff (rethinkdb :: DB.RETHINKDB | e) Unit
-listen config =
-  unsafeThrow "wat"
+  -> Eff (rethinkdb :: DB.RETHINKDB, err :: EXCEPTION | e) Unit
+listen config = void <<< launchAff $ do
+  changes <- DB.disruptionChanges
+  unsafeTrace changes

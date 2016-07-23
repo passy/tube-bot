@@ -131,7 +131,7 @@ function verifyRequestSignature(req, res, buf) {
 app.listen(app.get('port'), function () {
     console.log('Node app is running on port', app.get('port'));
 
-    Bot.listen();
+    Bot.listen({pageAccessToken: APP_CONFIG.PAGE_ACCESS_TOKEN})();
 });
 
 module.exports = app;
