@@ -7,12 +7,10 @@ import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
-
 import Bot.DB (RETHINKDB)
-import Bot.Types (LineStatusRow(LineStatusRow), MessageResponse(RspNoop), RouteName(RouteName))
+import Bot.Types (LineStatusRow(LineStatusRow), MessageResponse(RspNoop), RouteInfo(RouteInfo), RouteName(RouteName))
 import Control.Alt ((<|>))
-import Control.Monad.Aff (Aff, launchAff)
-import Control.Monad.Aff.Unsafe (unsafeTrace)
+import Control.Monad.Aff (forkAff, Aff, launchAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
@@ -20,7 +18,8 @@ import Data.Either (Either(Left, Right))
 import Data.Foreign (Foreign)
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
-import Data.Maybe (Maybe(Just))
+import Data.Maybe (Maybe(Just, Nothing))
+import Data.Traversable (for)
 import Network.HTTP.Affjax (AJAX)
 import Text.Parsing.StringParser (Parser, runParser)
 import Text.Parsing.StringParser.String (skipSpaces)
@@ -62,11 +61,18 @@ evalCommand
   -> Bot.Command
   -> Aff (rethinkdb :: RETHINKDB | e) Bot.MessageResponse
 evalCommand sender = go
-  where go (Bot.CmdSubscribe channel) = do
+  where
+    go (Bot.CmdSubscribe channel) = do
+      let extractRouteName (RouteInfo { name: RouteName name }) = name
+      routeInfo <- DB.findRouteByName channel.route
+      case routeInfo of
+        Nothing ->
+          pure $ Bot.RspText { text: "Sorry, I don't know about that line yet.", recipient: sender }
+        Just r -> do
           DB.subscribeUserToRoute sender channel.route
-          -- TODO: Extract text.
-          pure $ Bot.RspText { text: "You will now receive updates for " <> show channel.route, recipient: sender }
-        go (Bot.CmdUnsubscribe channel) = unsafeThrow "unsubscribe not implemented"
+          pure $ Bot.RspText { text: "You will now receive updates for " <> extractRouteName r, recipient: sender }
+
+    go (Bot.CmdUnsubscribe channel) = unsafeThrow "unsubscribe not implemented"
 
 callSendAPI :: forall e. Bot.MessengerConfig -> Bot.MessageResponse -> Affjax.Affjax e Foreign
 callSendAPI (Bot.MessengerConfig config) msg =
@@ -80,11 +86,18 @@ callSendAPI (Bot.MessengerConfig config) msg =
 listen
   :: forall e.
      Bot.MessengerConfig
-  -> Eff (rethinkdb :: DB.RETHINKDB, err :: EXCEPTION | e) Unit
+  -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, err :: EXCEPTION | e) Unit
 listen config = void <<< launchAff $ do
   disruption <- DB.disruptionChanges
-  recipients <- DB.findRecipientsForDisruption $ getName disruption
-  unsafeTrace recipients
+  forkAff $ do
+    recipients <- DB.findRecipientsForDisruption $ extractName disruption
+    for recipients \user -> do
+      let rsp = Bot.RspText { text: "Oh noes, a new disruption on the "
+                           <> (extractRoute <<< extractName $ disruption)
+                           <> " line."
+                            , recipient: user }
+      callSendAPI config rsp
 
   where
-    getName (LineStatusRow { name }) = name
+    extractName (LineStatusRow { name }) = name
+    extractRoute (RouteName name) = name

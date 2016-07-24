@@ -2,6 +2,7 @@ module Bot.DB
   ( disruptionChanges
   , findRecipientsForDisruption
   , subscribeUserToRoute
+  , findRouteByName
   , RETHINKDB) where
 
 import Prelude
