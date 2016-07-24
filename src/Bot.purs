@@ -7,14 +7,13 @@ import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
+
 import Bot.DB (RETHINKDB)
-import Bot.Types (RouteName(RouteName), RouteInfo(RouteInfo), LineStatusRow(LineStatusRow), MessageResponse(RspNoop))
+import Bot.Types (LineStatusRow(LineStatusRow), MessageResponse(RspNoop), RouteName(RouteName))
 import Control.Alt ((<|>))
-import Control.Alternative (liftA1)
 import Control.Monad.Aff (Aff, launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Either (Either(Left, Right))
@@ -31,13 +30,13 @@ listToString = String.fromCharArray <<< toUnfoldable
 
 channelCommandParser
   :: String
-  -> ({ channel :: String } -> Bot.Command)
+  -> ({ route :: RouteName } -> Bot.Command)
   -> Parser Bot.Command
 channelCommandParser str ctor = do
   void $ StringParser.string str
   skipSpaces
-  channel <- listToString <$> Parser.many1 StringParser.anyLetter
-  pure $ ctor { channel: channel }
+  name <- listToString <$> Parser.many1 StringParser.anyLetter
+  pure $ ctor { route: RouteName name }
 
 commandParser :: Parser Bot.Command
 commandParser =
@@ -67,7 +66,7 @@ evalCommand sender = go
           DB.subscribeUserToRoute sender channel.route
           -- TODO: Extract text.
           pure $ Bot.RspText { text: "You will now receive updates for " <> show channel.route, recipient: sender }
-        go (Bot.CmdUnsubscribe channel) = pure $ unsafeThrow "unsubscribe not implemented"
+        go (Bot.CmdUnsubscribe channel) = unsafeThrow "unsubscribe not implemented"
 
 callSendAPI :: forall e. Bot.MessengerConfig -> Bot.MessageResponse -> Affjax.Affjax e Foreign
 callSendAPI (Bot.MessengerConfig config) msg =
