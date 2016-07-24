@@ -8,8 +8,7 @@ import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
 import Bot.DB (RETHINKDB)
-import Bot.Types (LineStatusRow(LineStatusRow), MessageResponse(RspNoop), RouteInfo(RouteInfo), RouteName(RouteName))
-import Global.Unsafe (unsafeStringify)
+import Bot.Types (LineStatusRow(LineStatusRow), RouteInfo(RouteInfo), RouteName(RouteName), Template(TmplImageText, TmplParseError, TmplGenericError, TmplPlainText))
 import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
@@ -22,6 +21,7 @@ import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
 import Data.Traversable (for)
+import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (AJAX)
 import Text.Parsing.StringParser (Parser, runParser)
 import Text.Parsing.StringParser.String (skipSpaces)
@@ -49,19 +49,36 @@ handleReceivedMessage
      Bot.MessengerConfig
   -> Bot.MessagingEvent
   -> Eff (err :: EXCEPTION, rethinkdb :: RETHINKDB, ajax :: AJAX | e) Unit
-handleReceivedMessage config ev@(Bot.MessagingEvent e) = do
-  let txt ({ message: Bot.Message { text: text } }) = text
-  let res = runParser commandParser (txt e)
+handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: text }, sender }) = do
+  let res = runParser commandParser text
   let msg = case res of
-              Left err -> pure RspNoop
-              Right cmd -> evalCommand e.sender cmd
-  void $ launchAff (callSendAPI config =<< msg)
+              Left err -> pure $ Bot.TmplParseError { err }
+              Right cmd -> evalCommand sender cmd
+  void $ launchAff (callSendAPI config =<< renderTemplate sender <$> msg)
+
+renderTemplate
+  :: Bot.User
+  -> Bot.Template
+  -> Bot.MessageResponse
+renderTemplate user (TmplPlainText { text }) =
+  Bot.RspText { text: text, recipient: user }
+renderTemplate user (TmplGenericError { err }) =
+  Bot.RspText { text: "Sorry, an error has occurred: " <> show err
+              , recipient: user }
+renderTemplate user (TmplParseError { err }) =
+  Bot.RspText { text: "Sorry, I didn't get that. " <> show err
+              , recipient: user }
+renderTemplate user (TmplImageText { text, imageUrl }) =
+  let att = Bot.AttImage { url: imageUrl }
+  in Bot.RspTextAttachment { text: text
+                           , attachment: att
+                           , recipient: user }
 
 evalCommand
   :: forall e.
      Bot.User
   -> Bot.Command
-  -> Aff (rethinkdb :: RETHINKDB | e) Bot.MessageResponse
+  -> Aff (rethinkdb :: RETHINKDB | e) Bot.Template
 evalCommand sender = go
   where
     go (Bot.CmdSubscribe channel) = do
@@ -69,13 +86,12 @@ evalCommand sender = go
       routeInfo <- DB.findRouteByName channel.route
       case routeInfo of
         Nothing ->
-          pure $ Bot.RspText { text: "Sorry, I don't know about that line yet.", recipient: sender }
+          pure $ Bot.TmplPlainText { text: "Sorry, I don't know about that line yet." }
         Just r -> do
           DB.subscribeUserToRoute sender channel.route
-          pure $ Bot.RspText { text: "You will now receive updates for the "
-                            <> extractRouteName r
-                            <> " line. Hooray!"
-                             , recipient: sender }
+          pure $ Bot.TmplPlainText { text: "You will now receive updates for the "
+                                  <> extractRouteName r
+                                  <> " line. Hooray!" }
 
     go (Bot.CmdUnsubscribe channel) = unsafeThrow "unsubscribe not implemented"
 

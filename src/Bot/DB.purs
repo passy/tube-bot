@@ -24,6 +24,17 @@ foreign import _disruptionChanges
 disruptionChanges :: forall e. Aff.Aff (rethinkdb :: RETHINKDB | e) LineStatusRow
 disruptionChanges = Aff.makeAff _disruptionChanges
 
+foreign import _disruptionResolvedChanges
+  :: forall e f.
+     (Error -> Eff.Eff e Unit)
+  -> (LineStatusRow -> Eff.Eff e Unit)
+  -> Eff.Eff (rethinkdb :: RETHINKDB | f) Unit
+
+disruptionResolvedChanges
+  :: forall e.
+     Aff.Aff (rethinkdb :: RETHINKDB | e) LineStatusRow
+disruptionResolvedChanges = Aff.makeAff _disruptionResolvedChanges
+
 foreign import _findRecipientsForDisruption
   :: forall e f.
      RouteName

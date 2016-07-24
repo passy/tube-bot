@@ -1,13 +1,14 @@
 module Bot.Types where
 
 import Prelude
-
+import Data.Argonaut as J
 import Control.Alt ((<|>))
+import Control.Monad.Eff.Exception (Error)
 import Data.Argonaut ((~>), (:=))
 import Data.Generic (class Generic, gShow, gEq)
+import Network.HTTP.Affjax (URL)
 import Network.HTTP.Affjax.Request (toRequest, class Requestable)
-
-import Data.Argonaut as J
+import Text.Parsing.StringParser (ParseError())
 
 type SequenceNumber = Int
 type MessageId = String
@@ -33,6 +34,10 @@ instance showRouteInfo :: Show RouteInfo where
   show = gShow
 
 newtype User = User { id :: String }
+
+instance encodeJsonUser :: J.EncodeJson User where
+  encodeJson (User { id }) =
+    "id" := id ~> J.jsonEmptyObject
 
 -- | The unique name for a line without the "Line" suffix, e.g. "District" or
 -- "Hammersmith & City". Only for type-safty reasons.
@@ -76,8 +81,16 @@ derive instance genericMessagingEvent :: Generic MessagingEvent
 instance showMessagingEvent :: Show MessagingEvent where
   show = gShow
 
-data MessageResponse = RspNoop
-                     | RspText { text :: String, recipient :: User }
+data Template = TmplPlainText { text :: String }
+              | TmplGenericError { err :: Error }
+              | TmplParseError { err :: ParseError }
+              | TmplImageText { text :: String
+                              , imageUrl :: URL }
+
+data MessageResponse = RspText { text :: String, recipient :: User }
+                     | RspTextAttachment { text :: String
+                                         , attachment :: Attachment
+                                         , recipient :: User }
 
 derive instance genericMessageResponse :: Generic MessageResponse
 
@@ -88,11 +101,14 @@ instance eqMessageResponse :: Eq MessageResponse where
   eq = gEq
 
 instance encodeJsonMessageResponse :: J.EncodeJson MessageResponse where
-  encodeJson RspNoop
-    = J.jsonEmptyObject
+  encodeJson (RspText { text, recipient })
+    = "recipient" := J.encodeJson recipient
+   ~> "message" := ("text" := text ~> J.jsonEmptyObject)
+   ~> J.jsonEmptyObject
 
-  encodeJson (RspText { text: text, recipient: (User { id: id }) })
-    = "recipient" := ("id" := id ~> J.jsonEmptyObject)
+  encodeJson (RspTextAttachment { text, recipient, attachment })
+    = "recipient" := J.encodeJson recipient
+   ~> "attachment" := J.encodeJson attachment
    ~> "message" := ("text" := text ~> J.jsonEmptyObject)
    ~> J.jsonEmptyObject
 
@@ -109,3 +125,19 @@ instance showCommand :: Show Command where
 
 instance eqCommand :: Eq Command where
   eq = gEq
+
+newtype Attachment = AttImage { url :: URL }
+
+derive instance genericAttachment :: Generic Attachment
+
+instance showAttachment :: Show Attachment where
+  show = gShow
+
+instance eqAttachment :: Eq Attachment where
+  eq = gEq
+
+instance encodeJsonAttachment :: J.EncodeJson Attachment where
+  encodeJson (AttImage { url })
+    = "type" := "image"
+   ~> "payload" := ("url" := url ~> J.jsonEmptyObject)
+   ~> J.jsonEmptyObject
