@@ -84,16 +84,15 @@ exports._findRecipientsForDisruption = function (lineName) {
         return function (cb) {
             return function () {
                 r.table('messenger_subscriptions')
-                    .filter(r.row('status').eq('subscribed').and(r.row('line').eq(lineName)))
-                    .run(function (err, cursor) {
+                    .get(lineName).pluck(['recipients']).default([])
+                    .coerceTo('array')
+                    .run(function (err, res) {
                         if (err) {
                             eb(err)();
                             return;
                         }
 
-                        cursor.forEach(function (i) {
-                            cb(i)();
-                        });
+                        cb(res)();
                     });
             };
         };
