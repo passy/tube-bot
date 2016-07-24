@@ -53,13 +53,13 @@ exports._findRouteByName = function (name) {
     };
 };
 
-exports._subscribeUserToRoute = function (recipientId) {
+exports._subscribeUserToRoute = function (recipient) {
     return function (routeInfo) {
         return function (eb) {
             return function (cb) {
                 return function () {
                     r.table('messenger_subscriptions')
-                        .insert({route: routeInfo.name, recipients: [recipientId]},
+                        .insert({route: routeInfo.name, recipients: [recipient.id]},
                             {conflict: function (id, oldDoc, newDoc) {
                                 return oldDoc.merge({
                                     recipients: oldDoc('recipients').setUnion(newDoc('recipients'))

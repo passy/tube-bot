@@ -1,12 +1,13 @@
 module Bot.DB
   ( disruptionChanges
   , findRecipientsForDisruption
+  , subscribeUserToRoute
   , RETHINKDB) where
 
 import Prelude
 import Control.Monad.Aff as Aff
 import Control.Monad.Eff as Eff
-import Bot.Types (RouteName, MessagingParticipant, RouteInfo, LineStatusRow)
+import Bot.Types (RouteName, User(User), RouteInfo, LineStatusRow)
 import Control.Monad.Eff.Exception (Error)
 import Data.Array (head)
 import Data.Maybe (Maybe())
@@ -26,14 +27,14 @@ foreign import _findRecipientsForDisruption
   :: forall e f.
      RouteName
   -> (Error -> Eff.Eff e Unit)
-  -> (Array MessagingParticipant -> Eff.Eff e Unit)
+  -> (Array Int -> Eff.Eff e Unit)
   -> Eff.Eff (rethinkdb :: RETHINKDB | f) Unit
 
 findRecipientsForDisruption
   :: forall e.
      RouteName
-  -> Aff.Aff (rethinkdb :: RETHINKDB | e) (Array MessagingParticipant)
-findRecipientsForDisruption name = Aff.makeAff $ _findRecipientsForDisruption name
+  -> Aff.Aff (rethinkdb :: RETHINKDB | e) (Array User)
+findRecipientsForDisruption name = map (\id -> User { id: id }) <$> Aff.makeAff (_findRecipientsForDisruption name)
 
 foreign import _findRouteByName
   :: forall e f.
@@ -50,7 +51,7 @@ findRouteByName name = head <$> Aff.makeAff (_findRouteByName name)
 
 foreign import _subscribeUserToRoute
   :: forall e f.
-     MessagingParticipant
+     User
   -> RouteInfo
   -> (Error -> Eff.Eff e Unit)
   -> (Unit -> Eff.Eff e Unit)
@@ -58,7 +59,7 @@ foreign import _subscribeUserToRoute
 
 subscribeUserToRoute
   :: forall e.
-     MessagingParticipant
+     User
   -> RouteInfo
   -> Aff.Aff (rethinkdb :: RETHINKDB | e) Unit
-subscribeUserToRoute recipient route = Aff.makeAff $ _subscribeUserToRoute recipient route
+subscribeUserToRoute u route = Aff.makeAff $ _subscribeUserToRoute u route

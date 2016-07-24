@@ -170,14 +170,6 @@ const receivedMessage = exports.receivedMessage = (r, event) => {
                 sendAccountLinking(senderID);
                 break;
 
-            case 'subscribe':
-                subscribeUser(r, senderID, cmd[1]);
-                break;
-
-            case 'unsubscribe':
-                unsubscribeUser(r, senderID, cmd[1]);
-                break;
-
             default:
                 sendTextMessage(senderID, messageText);
         }

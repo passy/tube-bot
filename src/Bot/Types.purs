@@ -32,7 +32,7 @@ derive instance genericRouteInfo :: Generic RouteInfo
 instance showRouteInfo :: Show RouteInfo where
   show = gShow
 
-newtype MessagingParticipant = MessagingParticipant { id :: Int }
+newtype User = User { id :: Int }
 
 -- | The unique name for a line without the "Line" suffix, e.g. "District" or
 -- "Hammersmith & City". Only for type-safty reasons.
@@ -48,9 +48,9 @@ instance eqRouteName :: Eq RouteName where
 
 newtype MessengerConfig = MessengerConfig { pageAccessToken :: String }
 
-derive instance genericMessagingParticipant :: Generic MessagingParticipant
+derive instance genericUser :: Generic User
 
-instance showMessagingParticipant :: Show MessagingParticipant where
+instance showUser :: Show User where
   show = gShow
 
 newtype Message = Message
@@ -65,8 +65,8 @@ instance showMessage :: Show Message where
   show = gShow
 
 newtype MessagingEvent = MessagingEvent
-  { sender :: MessagingParticipant
-  , recipient :: MessagingParticipant
+  { sender :: User
+  , recipient :: User
   , timestamp :: Int
   , message :: Message
   }
@@ -77,7 +77,7 @@ instance showMessagingEvent :: Show MessagingEvent where
   show = gShow
 
 data MessageResponse = RspNoop
-                     | RspText { text :: String, recipient :: MessagingParticipant }
+                     | RspText { text :: String, recipient :: User }
 
 derive instance genericMessageResponse :: Generic MessageResponse
 
@@ -91,7 +91,7 @@ instance encodeJsonMessageResponse :: J.EncodeJson MessageResponse where
   encodeJson RspNoop
     = J.jsonEmptyObject
 
-  encodeJson (RspText { text: text, recipient: (MessagingParticipant { id: id }) })
+  encodeJson (RspText { text: text, recipient: (User { id: id }) })
     = "recipient" := ("id" := id ~> J.jsonEmptyObject)
    ~> "message" := ("text" := text ~> J.jsonEmptyObject)
    ~> J.jsonEmptyObject

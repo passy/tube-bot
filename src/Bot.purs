@@ -7,7 +7,7 @@ import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
-import Bot.Types (LineStatusRow(LineStatusRow), MessageResponse(RspNoop))
+import Bot.Types (RouteInfo(), User(), LineStatusRow(LineStatusRow), MessageResponse(RspNoop))
 import Control.Alt ((<|>))
 import Control.Monad.Aff (launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
@@ -57,7 +57,7 @@ handleReceivedMessage config ev@(Bot.MessagingEvent e) =
   in void <<< launchAff $ callSendAPI config msg
 
 evalCommand
-  :: Bot.MessagingParticipant
+  :: Bot.User
   -> Bot.Command
   -> Bot.MessageResponse
 evalCommand senderId = go
@@ -85,3 +85,11 @@ listen config = void <<< launchAff $ do
 
   where
     getName (LineStatusRow { name }) = name
+
+subscribeUser
+  :: forall e.
+     User
+  -> RouteInfo
+  -> Eff (rethinkdb :: DB.RETHINKDB, err :: EXCEPTION | e) Unit
+subscribeUser u r = void <<< launchAff $ do
+  DB.subscribeUserToRoute u r
