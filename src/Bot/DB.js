@@ -58,6 +58,7 @@ exports._subscribeUserToRoute = function (recipient) {
         return function (eb) {
             return function (cb) {
                 return function () {
+                    console.log('SUBSCRIBING', recipient, routeInfo);
                     r.table('messenger_subscriptions')
                         .insert({route: routeInfo.name, recipients: [recipient.id]},
                             {conflict: function (id, oldDoc, newDoc) {
