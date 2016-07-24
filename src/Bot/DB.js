@@ -70,7 +70,7 @@ exports._subscribeUserToRoute = function (recipient) {
                             if (err) {
                                 eb(err)();
                             } else {
-                                cb();
+                                cb()();
                             }
                         });
                 };
@@ -85,7 +85,7 @@ exports._findRecipientsForDisruption = function (lineName) {
         return function (cb) {
             return function () {
                 r.table('messenger_subscriptions')
-                    .get(lineName).pluck(['recipients']).default([])
+                    .get(lineName).pluck(['recipients']).default([])('recipients')
                     .coerceTo('array')
                     .run(function (err, res) {
                         if (err) {

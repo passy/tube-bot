@@ -28,7 +28,7 @@ foreign import _findRecipientsForDisruption
   :: forall e f.
      RouteName
   -> (Error -> Eff.Eff e Unit)
-  -> (Array Int -> Eff.Eff e Unit)
+  -> (Array String -> Eff.Eff e Unit)
   -> Eff.Eff (rethinkdb :: RETHINKDB | f) Unit
 
 findRecipientsForDisruption

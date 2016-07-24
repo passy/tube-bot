@@ -32,7 +32,7 @@ derive instance genericRouteInfo :: Generic RouteInfo
 instance showRouteInfo :: Show RouteInfo where
   show = gShow
 
-newtype User = User { id :: Int }
+newtype User = User { id :: String }
 
 -- | The unique name for a line without the "Line" suffix, e.g. "District" or
 -- "Hammersmith & City". Only for type-safty reasons.

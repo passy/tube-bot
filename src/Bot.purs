@@ -9,8 +9,10 @@ import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
 import Bot.DB (RETHINKDB)
 import Bot.Types (LineStatusRow(LineStatusRow), MessageResponse(RspNoop), RouteInfo(RouteInfo), RouteName(RouteName))
+import Global.Unsafe (unsafeStringify)
 import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
+import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
@@ -70,7 +72,10 @@ evalCommand sender = go
           pure $ Bot.RspText { text: "Sorry, I don't know about that line yet.", recipient: sender }
         Just r -> do
           DB.subscribeUserToRoute sender channel.route
-          pure $ Bot.RspText { text: "You will now receive updates for " <> extractRouteName r, recipient: sender }
+          pure $ Bot.RspText { text: "You will now receive updates for the "
+                            <> extractRouteName r
+                            <> " line. Hooray!"
+                             , recipient: sender }
 
     go (Bot.CmdUnsubscribe channel) = unsafeThrow "unsubscribe not implemented"
 
@@ -89,9 +94,12 @@ listen
   -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, err :: EXCEPTION | e) Unit
 listen config = void <<< launchAff $ do
   disruption <- DB.disruptionChanges
+  unsafeTrace $ "Obtained new disruption " <> unsafeStringify disruption
   forkAff $ do
     recipients <- DB.findRecipientsForDisruption $ extractName disruption
+    unsafeTrace $ "Found recipients " <> unsafeStringify recipients
     for recipients \user -> do
+      unsafeTrace $ "Going into user: " <> unsafeStringify user
       let rsp = Bot.RspText { text: "Oh noes, a new disruption on the "
                            <> (extractRoute <<< extractName $ disruption)
                            <> " line."
