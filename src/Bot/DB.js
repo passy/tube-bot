@@ -53,6 +53,31 @@ exports._findRouteByName = function (name) {
     };
 };
 
+exports._subscribeUserToRoute = function (recipientId) {
+    return function (routeInfo) {
+        return function (eb) {
+            return function (cb) {
+                return function () {
+                    r.table('messenger_subscriptions')
+                        .insert({route: routeInfo.name, recipients: [recipientId]},
+                            {conflict: function (id, oldDoc, newDoc) {
+                                return oldDoc.merge({
+                                    recipients: oldDoc('recipients').setUnion(newDoc('recipients'))
+                                });
+                            }})
+                        .run(function (err) {
+                            if (err) {
+                                eb(err)();
+                            } else {
+                                cb();
+                            }
+                        });
+                };
+            };
+        };
+    };
+};
+
 /* Recipients For Disruption #rockbandnames */
 exports._findRecipientsForDisruption = function (lineName) {
     return function (eb) {
