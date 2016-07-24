@@ -10,7 +10,8 @@ import Text.Parsing.StringParser.String as StringParser
 import Bot.DB (RETHINKDB)
 import Bot.Types (RouteName(RouteName), RouteInfo(RouteInfo), LineStatusRow(LineStatusRow), MessageResponse(RspNoop))
 import Control.Alt ((<|>))
-import Control.Monad.Aff (launchAff)
+import Control.Alternative (liftA1)
+import Control.Monad.Aff (Aff, launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
@@ -44,30 +45,28 @@ commandParser =
     <|> channelCommandParser "unsubscribe" Bot.CmdUnsubscribe
 
 handleReceivedMessage
-  :: Bot.MessengerConfig
+  :: forall e.
+     Bot.MessengerConfig
   -> Bot.MessagingEvent
-  -> forall e.
-     Eff (console :: CONSOLE, err :: EXCEPTION, rethinkdb :: RETHINKDB, ajax :: AJAX | e) Unit
+  -> Eff (err :: EXCEPTION, rethinkdb :: RETHINKDB, ajax :: AJAX | e) Unit
 handleReceivedMessage config ev@(Bot.MessagingEvent e) = do
   let txt ({ message: Bot.Message { text: text } }) = text
   let res = runParser commandParser (txt e)
-  msg <- case res of
-    -- TODO: Construct an error message
-    Left err -> pure RspNoop
-    Right cmd -> evalCommand e.sender cmd
-  void <<< launchAff $ callSendAPI config msg
+  let msg = case res of
+              Left err -> pure RspNoop
+              Right cmd -> evalCommand e.sender cmd
+  void $ launchAff (callSendAPI config =<< msg)
 
 evalCommand
   :: forall e.
      Bot.User
   -> Bot.Command
-  -- TODO: Handle err here, don't bubble this up. Make this aff, too.
-  -> Eff (err :: EXCEPTION, rethinkdb :: RETHINKDB | e) Bot.MessageResponse
+  -> Aff (rethinkdb :: RETHINKDB | e) Bot.MessageResponse
 evalCommand sender = go
   where go (Bot.CmdSubscribe channel) = do
-          -- TODO: Change signature back to route name instead. And make the command return one.
-          launchAff $ DB.subscribeUserToRoute sender (RouteInfo { id: "", name: (RouteName channel.channel) })
-          pure $ Bot.RspText { text: "Hoo-fucking-ray!", recipient: sender }
+          DB.subscribeUserToRoute sender channel.route
+          -- TODO: Extract text.
+          pure $ Bot.RspText { text: "You will now receive updates for " <> show channel.route, recipient: sender }
         go (Bot.CmdUnsubscribe channel) = pure $ unsafeThrow "unsubscribe not implemented"
 
 callSendAPI :: forall e. Bot.MessengerConfig -> Bot.MessageResponse -> Affjax.Affjax e Foreign

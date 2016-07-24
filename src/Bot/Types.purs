@@ -99,8 +99,8 @@ instance encodeJsonMessageResponse :: J.EncodeJson MessageResponse where
 instance requestableMessageResponse :: Requestable MessageResponse where
   toRequest = toRequest <<< J.encodeJson
 
-data Command = CmdSubscribe { channel :: String }
-             | CmdUnsubscribe { channel :: String }
+data Command = CmdSubscribe { route :: RouteName }
+             | CmdUnsubscribe { route :: RouteName }
 
 derive instance genericCommand :: Generic Command
 

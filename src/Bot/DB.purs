@@ -52,7 +52,7 @@ findRouteByName name = head <$> Aff.makeAff (_findRouteByName name)
 foreign import _subscribeUserToRoute
   :: forall e f.
      User
-  -> RouteInfo
+  -> RouteName
   -> (Error -> Eff.Eff e Unit)
   -> (Unit -> Eff.Eff e Unit)
   -> Eff.Eff (rethinkdb :: RETHINKDB | f) Unit
@@ -60,6 +60,6 @@ foreign import _subscribeUserToRoute
 subscribeUserToRoute
   :: forall e.
      User
-  -> RouteInfo
+  -> RouteName
   -> Aff.Aff (rethinkdb :: RETHINKDB | e) Unit
 subscribeUserToRoute u route = Aff.makeAff $ _subscribeUserToRoute u route
