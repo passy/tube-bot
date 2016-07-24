@@ -7,7 +7,7 @@ import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
-import Bot.Types (MessageResponse(RspNoop))
+import Bot.Types (LineStatusRow(LineStatusRow), MessageResponse(RspNoop))
 import Control.Alt ((<|>))
 import Control.Monad.Aff (launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
@@ -79,5 +79,9 @@ listen
      Bot.MessengerConfig
   -> Eff (rethinkdb :: DB.RETHINKDB, err :: EXCEPTION | e) Unit
 listen config = void <<< launchAff $ do
-  changes <- DB.disruptionChanges
-  unsafeTrace changes
+  disruption <- DB.disruptionChanges
+  recipients <- DB.findRecipientsForDisruption $ getName disruption
+  unsafeTrace recipients
+
+  where
+    getName (LineStatusRow { name }) = name

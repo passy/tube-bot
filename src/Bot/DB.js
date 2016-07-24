@@ -9,7 +9,7 @@ const r = rethink(APP_CONFIG.RETHINKDB);
 exports._disruptionChanges = function (eb) {
     return function (cb) {
         return function () {
-            r.table('lines')
+            r.table('disruptions')
                 .filter(r.row('level').ge(1))
                 .changes()
                 .run(function (err, cursor) {
@@ -33,8 +33,28 @@ exports._disruptionChanges = function (eb) {
     };
 };
 
+exports._findRouteByName = function (name) {
+    return function (eb) {
+        return function (cb) {
+            return function () {
+                return r.table('routes_info')
+                        .getAll(name, {index: 'name'})
+                        .coerceTo('array')
+                        .run(function (err, res) {
+                            if (err) {
+                                eb(err)();
+                                return;
+                            }
+
+                            cb(res)();
+                        });
+            };
+        };
+    };
+};
+
 /* Recipients For Disruption #rockbandnames */
-module.exports._findRecipientsForDisruption = function (lineName) {
+exports._findRecipientsForDisruption = function (lineName) {
     return function (eb) {
         return function (cb) {
             return function () {
@@ -43,6 +63,7 @@ module.exports._findRecipientsForDisruption = function (lineName) {
                     .run(function (err, cursor) {
                         if (err) {
                             eb(err)();
+                            return;
                         }
 
                         cursor.forEach(function (i) {

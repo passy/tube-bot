@@ -13,7 +13,7 @@ type SequenceNumber = Int
 type MessageId = String
 
 newtype LineStatusRow = LineStatusRow
-  { name :: String
+  { name :: RouteName
   , description :: String
   , disruptions :: Array Disruption
   , level :: Int }
@@ -23,7 +23,28 @@ newtype Disruption = Disruption
   , summary :: String
   , stops :: Array String }
 
+newtype RouteInfo = RouteInfo
+  { id :: String
+  , name :: RouteName }
+
+derive instance genericRouteInfo :: Generic RouteInfo
+
+instance showRouteInfo :: Show RouteInfo where
+  show = gShow
+
 newtype MessagingParticipant = MessagingParticipant { id :: Int }
+
+-- | The unique name for a line without the "Line" suffix, e.g. "District" or
+-- "Hammersmith & City". Only for type-safty reasons.
+newtype RouteName = RouteName String
+
+derive instance genericRouteName :: Generic RouteName
+
+instance showRouteName :: Show RouteName where
+  show = gShow
+
+instance eqRouteName :: Eq RouteName where
+  eq = gEq
 
 newtype MessengerConfig = MessengerConfig { pageAccessToken :: String }
 
