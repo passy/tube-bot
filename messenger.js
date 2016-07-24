@@ -658,36 +658,3 @@ const sendAccountLinking = exports.sendAccountLinking = recipientId => {
 
     callSendAPI(messageData);
 };
-
-/*
- * Subscribe a user to all alerts.
- */
-const subscribeUser = exports.subscribeUser = (r, recipientId, line) => {
-    r.table('messenger_subscriptions')
-        .insert(
-            {recipient_id: recipientId, status: 'subscribed', line: line},
-            {conflict: 'replace'})
-        .run(err => {
-            if (err) {
-                throw err;
-            }
-            sendTextMessage(recipientId,
-                `You're now getting updates for ${line}.`);
-        });
-};
-
-/*
- * Unsubscribe a user from all alerts.
- */
-const unsubscribeUser = exports.unsubscribeUser = (r, recipientId, line) => {
-    r.table('messenger_subscriptions')
-        .get(recipientId)
-        .update({status: 'unsubscribed', line: line})
-        .run(err => {
-            if (err) {
-                throw err;
-            }
-            sendTextMessage(recipientId,
-                 `Sorry for the noise. You're now unsubscribed from ${line} updates.`);
-        });
-};
