@@ -88,9 +88,8 @@ data Template = TmplPlainText { text :: String }
                               , imageUrl :: URL }
 
 data MessageResponse = RspText { text :: String, recipient :: User }
-                     | RspTextAttachment { text :: String
-                                         , attachment :: Attachment
-                                         , recipient :: User }
+                     | RspAttachment { attachment :: Attachment
+                                     , recipient :: User }
 
 derive instance genericMessageResponse :: Generic MessageResponse
 
@@ -106,10 +105,10 @@ instance encodeJsonMessageResponse :: J.EncodeJson MessageResponse where
    ~> "message" := ("text" := text ~> J.jsonEmptyObject)
    ~> J.jsonEmptyObject
 
-  encodeJson (RspTextAttachment { text, recipient, attachment })
+  encodeJson (RspAttachment { recipient, attachment })
     = "recipient" := J.encodeJson recipient
-   ~> "attachment" := J.encodeJson attachment
-   ~> "message" := ("text" := text ~> J.jsonEmptyObject)
+   ~> "message" := ( "attachment" := J.encodeJson attachment
+                  ~> J.jsonEmptyObject )
    ~> J.jsonEmptyObject
 
 instance requestableMessageResponse :: Requestable MessageResponse where

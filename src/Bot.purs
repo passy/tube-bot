@@ -22,7 +22,7 @@ import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
 import Data.Traversable (for)
 import Global.Unsafe (unsafeStringify)
-import Network.HTTP.Affjax (AJAX)
+import Network.HTTP.Affjax (URL, AJAX)
 import Text.Parsing.StringParser (Parser, runParser)
 import Text.Parsing.StringParser.String (skipSpaces)
 
@@ -70,9 +70,8 @@ renderTemplate user (TmplParseError { err }) =
               , recipient: user }
 renderTemplate user (TmplImageText { text, imageUrl }) =
   let att = Bot.AttImage { url: imageUrl }
-  in Bot.RspTextAttachment { text: text
-                           , attachment: att
-                           , recipient: user }
+  in Bot.RspAttachment { attachment: att
+                       , recipient: user }
 
 evalCommand
   :: forall e.
@@ -116,10 +115,13 @@ listen config = void <<< launchAff $ do
     unsafeTrace $ "Found recipients " <> unsafeStringify recipients
     for recipients \user -> do
       unsafeTrace $ "Going into user: " <> unsafeStringify user
-      let rsp = Bot.RspText { text: "Oh noes, a new disruption on the "
-                           <> (extractRoute <<< extractName $ disruption)
-                           <> " line."
-                            , recipient: user }
+      -- TBD
+      let att = Bot.AttImage { url: "https://pbs.twimg.com/profile_images/666202270946729984/cBrnNhH-.png" }
+      let rsp = Bot.RspText
+                { text: "Oh noes, a new disruption on the "
+               <> (extractRoute <<< extractName $ disruption)
+               <> " line."
+                , recipient: user }
       callSendAPI config rsp
 
   where
