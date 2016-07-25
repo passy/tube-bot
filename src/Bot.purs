@@ -121,6 +121,7 @@ listen config = void <<< launchAff $ do
   unsafeTrace $ "Obtained new disruption " <> unsafeStringify disruption
   forkAff $ do
     recipients <- DB.findRecipientsForDisruption $ extractName disruption
+    -- TODO: Exit here if there's no info.
     routeInfo <- DB.findRouteByName $ extractName disruption
     for recipients \user -> do
       let txt = "Oh noes, a new disruption on the "
@@ -136,6 +137,7 @@ listen config = void <<< launchAff $ do
     extractName (LineStatusRow { name }) = name
     extractRoute (RouteName name) = name
 
+    -- TODO: Fallback if empty
     extractInfoImageUrl info =
       case info of
         Just (RouteInfoRow r) -> r.image_url
