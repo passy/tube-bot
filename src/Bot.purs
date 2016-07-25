@@ -8,7 +8,7 @@ import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
 import Bot.DB (RETHINKDB)
-import Bot.Types (LineStatusRow(LineStatusRow), RouteInfo(RouteInfo), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
+import Bot.Types (RouteInfoRow(RouteInfoRow), LineStatusRow(LineStatusRow), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
 import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
@@ -90,7 +90,7 @@ evalCommand
 evalCommand sender = go
   where
     go (Bot.CmdSubscribe channel) = do
-      let extractRouteName (RouteInfo { name: RouteName name }) = name
+      let extractRouteName (RouteInfoRow { name: RouteName name }) = name
       routeInfo <- DB.findRouteByName channel.route
       case routeInfo of
         Nothing ->
@@ -121,7 +121,7 @@ listen config = void <<< launchAff $ do
   unsafeTrace $ "Obtained new disruption " <> unsafeStringify disruption
   forkAff $ do
     recipients <- DB.findRecipientsForDisruption $ extractName disruption
-    unsafeTrace $ "Found recipients " <> unsafeStringify recipients
+    routeInfo <- DB.findRouteByName $ extractName disruption
     for recipients \user -> do
       let txt = "Oh noes, a new disruption on the "
              <> (extractRoute <<< extractName $ disruption)
@@ -129,9 +129,14 @@ listen config = void <<< launchAff $ do
       let tmpl = Bot.TmplGenericImage
                 { title: extractRoute <<< extractName $ disruption
                 , subtitle: pure txt
-                , imageUrl: "https://pbs.twimg.com/profile_images/666202270946729984/cBrnNhH-.png" }
+                , imageUrl: extractInfoImageUrl routeInfo }
       callSendAPI config $ renderTemplate user tmpl
 
   where
     extractName (LineStatusRow { name }) = name
     extractRoute (RouteName name) = name
+
+    extractInfoImageUrl info =
+      case info of
+        Just (RouteInfoRow r) -> r.image_url
+        Nothing -> "https://cldup.com/WeSoPrcj4I.svg"

@@ -43,7 +43,7 @@ exports.receivedDeliveryConfirmation = event => {
     if (messageIDs) {
         messageIDs.forEach(messageID => {
             console.log('Received delivery confirmation from sender %s ' +
-                        'to recipient % s for message ID %s and sequence number %s',
+                        'to recipient %s for message ID %s and sequence number %s',
             senderID, recipientID, messageID, sequenceNumber);
         });
     }

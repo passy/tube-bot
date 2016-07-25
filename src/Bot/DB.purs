@@ -8,7 +8,7 @@ module Bot.DB
 import Prelude
 import Control.Monad.Aff as Aff
 import Control.Monad.Eff as Eff
-import Bot.Types (RouteName, User(User), RouteInfo, LineStatusRow)
+import Bot.Types (RouteName, User(User), RouteInfoRow, LineStatusRow)
 import Control.Monad.Eff.Exception (Error)
 import Data.Array (head)
 import Data.Maybe (Maybe())
@@ -52,13 +52,13 @@ foreign import _findRouteByName
   :: forall e f.
      RouteName
   -> (Error -> Eff.Eff e Unit)
-  -> (Array RouteInfo -> Eff.Eff e Unit)
+  -> (Array RouteInfoRow -> Eff.Eff e Unit)
   -> Eff.Eff (rethinkdb :: RETHINKDB | f) Unit
 
 findRouteByName
   :: forall e.
      RouteName
-  -> Aff.Aff (rethinkdb :: RETHINKDB | e) (Maybe RouteInfo)
+  -> Aff.Aff (rethinkdb :: RETHINKDB | e) (Maybe RouteInfoRow)
 findRouteByName name = head <$> Aff.makeAff (_findRouteByName name)
 
 foreign import _subscribeUserToRoute

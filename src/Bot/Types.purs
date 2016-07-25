@@ -25,13 +25,14 @@ newtype Disruption = Disruption
   , summary :: String
   , stops :: Array String }
 
-newtype RouteInfo = RouteInfo
+newtype RouteInfoRow = RouteInfoRow
   { id :: String
-  , name :: RouteName }
+  , name :: RouteName
+  , image_url :: URL }
 
-derive instance genericRouteInfo :: Generic RouteInfo
+derive instance genericRouteInfoRow :: Generic RouteInfoRow
 
-instance showRouteInfo :: Show RouteInfo where
+instance showRouteInfoRow :: Show RouteInfoRow where
   show = gShow
 
 newtype User = User { id :: String }
