@@ -8,7 +8,7 @@ import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
 import Bot.DB (RETHINKDB)
-import Bot.Types (LineStatusRow(LineStatusRow), RouteInfo(RouteInfo), RouteName(RouteName), Template(TmplImageText, TmplParseError, TmplGenericError, TmplPlainText))
+import Bot.Types (LineStatusRow(LineStatusRow), RouteInfo(RouteInfo), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
 import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
@@ -22,7 +22,7 @@ import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
 import Data.Traversable (for)
 import Global.Unsafe (unsafeStringify)
-import Network.HTTP.Affjax (URL, AJAX)
+import Network.HTTP.Affjax (AJAX)
 import Text.Parsing.StringParser (Parser, runParser)
 import Text.Parsing.StringParser.String (skipSpaces)
 
@@ -68,8 +68,17 @@ renderTemplate user (TmplGenericError { err }) =
 renderTemplate user (TmplParseError { err }) =
   Bot.RspText { text: "Sorry, I didn't get that. " <> show err
               , recipient: user }
-renderTemplate user (TmplImageText { text, imageUrl }) =
+renderTemplate user (TmplImage { imageUrl }) =
   let att = Bot.AttImage { url: imageUrl }
+  in Bot.RspAttachment { attachment: att
+                       , recipient: user }
+renderTemplate user (TmplGenericImage { title, subtitle, imageUrl }) =
+  let el = Bot.Element { title: title
+                       , subtitle: subtitle
+                       , imageUrl: Just imageUrl
+                       , itemUrl: Nothing
+                       , buttons: [] }
+      att = Bot.AttGenericTemplate { elements: pure el }
   in Bot.RspAttachment { attachment: att
                        , recipient: user }
 
@@ -114,15 +123,14 @@ listen config = void <<< launchAff $ do
     recipients <- DB.findRecipientsForDisruption $ extractName disruption
     unsafeTrace $ "Found recipients " <> unsafeStringify recipients
     for recipients \user -> do
-      unsafeTrace $ "Going into user: " <> unsafeStringify user
-      -- TBD
-      let att = Bot.AttImage { url: "https://pbs.twimg.com/profile_images/666202270946729984/cBrnNhH-.png" }
-      let rsp = Bot.RspText
-                { text: "Oh noes, a new disruption on the "
-               <> (extractRoute <<< extractName $ disruption)
-               <> " line."
-                , recipient: user }
-      callSendAPI config rsp
+      let txt = "Oh noes, a new disruption on the "
+             <> (extractRoute <<< extractName $ disruption)
+             <> " line."
+      let tmpl = Bot.TmplGenericImage
+                { title: extractRoute <<< extractName $ disruption
+                , subtitle: pure txt
+                , imageUrl: "https://pbs.twimg.com/profile_images/666202270946729984/cBrnNhH-.png" }
+      callSendAPI config $ renderTemplate user tmpl
 
   where
     extractName (LineStatusRow { name }) = name

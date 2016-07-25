@@ -6,9 +6,10 @@ import Control.Alt ((<|>))
 import Control.Monad.Eff.Exception (Error)
 import Data.Argonaut ((~>), (:=))
 import Data.Generic (class Generic, gShow, gEq)
+import Data.Maybe (Maybe)
 import Network.HTTP.Affjax (URL)
 import Network.HTTP.Affjax.Request (toRequest, class Requestable)
-import Text.Parsing.StringParser (ParseError())
+import Text.Parsing.StringParser (ParseError)
 
 type SequenceNumber = Int
 type MessageId = String
@@ -84,8 +85,11 @@ instance showMessagingEvent :: Show MessagingEvent where
 data Template = TmplPlainText { text :: String }
               | TmplGenericError { err :: Error }
               | TmplParseError { err :: ParseError }
-              | TmplImageText { text :: String
-                              , imageUrl :: URL }
+              | TmplImage { imageUrl :: URL }
+              | TmplGenericImage { title :: String
+                                 , subtitle :: Maybe String
+                                 , imageUrl :: URL
+                                 }
 
 data MessageResponse = RspText { text :: String, recipient :: User }
                      | RspAttachment { attachment :: Attachment
@@ -101,14 +105,13 @@ instance eqMessageResponse :: Eq MessageResponse where
 
 instance encodeJsonMessageResponse :: J.EncodeJson MessageResponse where
   encodeJson (RspText { text, recipient })
-    = "recipient" := J.encodeJson recipient
+    = "recipient" := recipient
    ~> "message" := ("text" := text ~> J.jsonEmptyObject)
    ~> J.jsonEmptyObject
 
   encodeJson (RspAttachment { recipient, attachment })
-    = "recipient" := J.encodeJson recipient
-   ~> "message" := ( "attachment" := J.encodeJson attachment
-                  ~> J.jsonEmptyObject )
+    = "recipient" := recipient
+   ~> "message" := ("attachment" := attachment ~> J.jsonEmptyObject)
    ~> J.jsonEmptyObject
 
 instance requestableMessageResponse :: Requestable MessageResponse where
@@ -125,7 +128,50 @@ instance showCommand :: Show Command where
 instance eqCommand :: Eq Command where
   eq = gEq
 
-newtype Attachment = AttImage { url :: URL }
+newtype Element = Element
+  { title :: String
+  , itemUrl :: Maybe URL
+  , imageUrl :: Maybe URL
+  , subtitle :: Maybe String
+  , buttons :: Array Button
+  }
+
+derive instance genericElement :: Generic Element
+
+instance showElement :: Show Element where
+  show = gShow
+
+instance eqElement :: Eq Element where
+  eq = gEq
+
+instance encodeJsonElement :: J.EncodeJson Element where
+  encodeJson (Element el)
+    = "title" := el.title
+   ~> "subtitle" := el.subtitle
+   ~> "image_url" := el.imageUrl
+   ~> "item_url" := el.itemUrl
+   -- "buttons" := el.buttons
+   ~> J.jsonEmptyObject
+
+-- TBD
+data Button
+  = BtnWeb { title :: String
+           , url :: URL }
+  | BtnPostback { title :: String
+                , payload :: String }
+  | BtnPhoneNumber { title :: String
+                   , payload :: String }
+
+derive instance genericButton :: Generic Button
+
+instance showButton :: Show Button where
+  show = gShow
+
+instance eqButton :: Eq Button where
+  eq = gEq
+
+data Attachment = AttImage { url :: URL }
+                | AttGenericTemplate { elements :: Array Element }
 
 derive instance genericAttachment :: Generic Attachment
 
@@ -139,4 +185,10 @@ instance encodeJsonAttachment :: J.EncodeJson Attachment where
   encodeJson (AttImage { url })
     = "type" := "image"
    ~> "payload" := ("url" := url ~> J.jsonEmptyObject)
+   ~> J.jsonEmptyObject
+  encodeJson (AttGenericTemplate { elements })
+    = "type" := "template"
+   ~> "payload" := ( "template_type" := "generic"
+                  ~> "elements" := elements
+                  ~> J.jsonEmptyObject )
    ~> J.jsonEmptyObject

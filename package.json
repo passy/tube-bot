@@ -21,7 +21,7 @@
   "scripts": {
     "build": "pulp build",
     "start": "babel-node index.js",
-    "watch": "ls *.js output/**/*.js | entr -r -- babel-node index.js",
+    "watch": "ls *.js output/**/*.js | entr -r -- node_modules/.bin/babel-node index.js",
     "test": "xo"
   },
   "repository": {
