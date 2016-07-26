@@ -64,6 +64,7 @@ app.post('/webhook', (req, res) => {
                 } else if (messagingEvent.delivery) {
                     messenger.receivedDeliveryConfirmation(messagingEvent);
                 } else if (messagingEvent.postback) {
+                    // TODO: Handle in PS
                     messenger.receivedPostback(messagingEvent);
                 } else if (messagingEvent.read) {
                     messenger.receivedMessageRead(messagingEvent);

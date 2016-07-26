@@ -154,7 +154,6 @@ instance encodeJsonElement :: J.EncodeJson Element where
    ~> "buttons" := el.buttons
    ~> J.jsonEmptyObject
 
--- TBD
 data Button
   = BtnWeb { title :: String
            , url :: URL }
