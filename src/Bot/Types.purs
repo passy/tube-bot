@@ -151,7 +151,7 @@ instance encodeJsonElement :: J.EncodeJson Element where
    ~> "subtitle" := el.subtitle
    ~> "image_url" := el.imageUrl
    ~> "item_url" := el.itemUrl
-   -- "buttons" := el.buttons
+   ~> "buttons" := el.buttons
    ~> J.jsonEmptyObject
 
 -- TBD
@@ -170,6 +170,23 @@ instance showButton :: Show Button where
 
 instance eqButton :: Eq Button where
   eq = gEq
+
+instance encodeJsonButton :: J.EncodeJson Button where
+  encodeJson (BtnWeb { title, url })
+    = "type" := "web"
+   ~> "title" := title
+   ~> "url" := url
+   ~> J.jsonEmptyObject
+  encodeJson (BtnPostback { title, payload })
+    = "type" := "postback"
+   ~> "title" := title
+   ~> "payload" := payload
+   ~> J.jsonEmptyObject
+  encodeJson (BtnPhoneNumber { title, payload })
+    = "type" := "phonenumber"
+   ~> "title" := title
+   ~> "payload" := payload
+   ~> J.jsonEmptyObject
 
 data Attachment = AttImage { url :: URL }
                 | AttGenericTemplate { elements :: Array Element }
