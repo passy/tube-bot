@@ -17,6 +17,7 @@
   "devDependencies": {
     "bower": "^1.7.9",
     "pulp": "^9.0.1",
+    "purescript": "^0.9.2",
     "xo": "^0.16.0"
   },
   "scripts": {
