@@ -52,6 +52,7 @@ app.post('/webhook', (req, res) => {
             const pageId = pageEntry.id;
 
             if (pageId !== APP_CONFIG.PAGE_ID) {
+                console.warn('Unexpected page id', pageId);
                 return;
             }
 
