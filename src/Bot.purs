@@ -13,8 +13,8 @@ import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (EXCEPTION)
-import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Control.Monad.Eff.Exception (EXCEPTION, try, error)
+import Control.Monad.Eff.Console (CONSOLE, log)
 import Data.Either (Either(Left, Right))
 import Data.Foreign (Foreign)
 import Data.HTTP.Method (Method(POST))
@@ -48,13 +48,16 @@ handleReceivedMessage
   :: forall e.
      Bot.MessengerConfig
   -> Bot.MessagingEvent
-  -> Eff (err :: EXCEPTION, rethinkdb :: RETHINKDB, ajax :: AJAX | e) Unit
+  -> Eff (rethinkdb :: RETHINKDB, ajax :: AJAX, console :: CONSOLE | e) Unit
 handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: text }, sender }) = do
   let res = runParser commandParser text
   let msg = case res of
               Left err -> pure $ Bot.TmplParseError { err }
               Right cmd -> evalCommand sender cmd
-  void $ launchAff (callSendAPI config =<< renderTemplate sender <$> msg)
+  result <- try $ void $ launchAff (callSendAPI config =<< renderTemplate sender <$> msg)
+  case result of
+    Right _ -> pure unit
+    Left err -> log $ "ERROR: " <> show err
 
 renderTemplate
   :: Bot.User
@@ -101,7 +104,8 @@ evalCommand sender = go
                                   <> extractRouteName r
                                   <> " line. Hooray!" }
 
-    go (Bot.CmdUnsubscribe channel) = unsafeThrow "unsubscribe not implemented"
+    go (Bot.CmdUnsubscribe channel) =
+      pure $ Bot.TmplGenericError { err: error "Sorry, unsubscribing is still in the works." }
 
 callSendAPI :: forall e. Bot.MessengerConfig -> Bot.MessageResponse -> Affjax.Affjax e Foreign
 callSendAPI (Bot.MessengerConfig config) msg =
