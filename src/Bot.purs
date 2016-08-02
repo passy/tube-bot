@@ -9,20 +9,23 @@ import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
 import Bot.DB (RETHINKDB)
 import Bot.Types (RouteInfoRow(RouteInfoRow), LineStatusRow(LineStatusRow), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
+import Bot.Unsafe (unsafeTaggedTraceId, unsafeTraceId)
 import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (EXCEPTION, try, error)
 import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Exception (EXCEPTION, try, error)
+import Data.Argonaut (Json)
+import Data.Argonaut.Decode (decodeJson)
 import Data.Either (Either(Left, Right))
 import Data.Foreign (Foreign)
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
-import Data.Traversable (for)
+import Data.Traversable (traverse, for)
 import Global.Unsafe (unsafeStringify)
-import Network.HTTP.Affjax (AJAX)
+import Network.HTTP.Affjax (AffjaxResponse, AJAX)
 import Text.Parsing.StringParser (Parser, runParser)
 import Text.Parsing.StringParser.String (skipSpaces)
 
@@ -54,7 +57,10 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
   let msg = case res of
               Left err -> pure $ Bot.TmplParseError { err }
               Right cmd -> evalCommand sender cmd
-  result <- try $ void $ launchAff (callSendAPI config =<< renderTemplate sender <$> msg)
+  result <- try $ void $ launchAff $ do
+    res' <- callSendAPI config =<< renderTemplate sender <$> msg
+    unsafeTrace $ "RESPONSE\n-------\n" <> unsafeStringify res'
+    pure res'
   case result of
     Right _ -> pure unit
     Left err -> log $ "ERROR: " <> show err
@@ -107,12 +113,16 @@ evalCommand sender = go
     go (Bot.CmdUnsubscribe channel) =
       pure $ Bot.TmplGenericError { err: error "Sorry, unsubscribing is still in the works." }
 
-callSendAPI :: forall e. Bot.MessengerConfig -> Bot.MessageResponse -> Affjax.Affjax e Foreign
+callSendAPI
+  :: forall e.
+     Bot.MessengerConfig
+  -> Bot.MessageResponse
+  -> Affjax.Affjax e Foreign
 callSendAPI (Bot.MessengerConfig config) msg =
   let url = "https://graph.facebook.com/v2.7/me/messages"
       query = "?access_token=" <> config.pageAccessToken
-      req = Affjax.defaultRequest { method = Left POST
-                                  , url = url <> query
+      req = unsafeTaggedTraceId "REQUEST\n----------" $ Affjax.defaultRequest { method = Left POST
+                                  , url = (url <> query)
                                   , content = Just msg }
   in Affjax.affjax req
 

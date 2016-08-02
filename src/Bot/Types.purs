@@ -4,9 +4,11 @@ import Prelude
 import Data.Argonaut as J
 import Control.Alt ((<|>))
 import Control.Monad.Eff.Exception (Error)
-import Data.Argonaut ((~>), (:=))
+import Data.Argonaut (class DecodeJson, (~>), (:=), (.?))
+import Data.Either (either)
 import Data.Generic (class Generic, gShow, gEq)
-import Data.Maybe (Maybe)
+import Data.Map (Map)
+import Data.Maybe (Maybe(Nothing))
 import Network.HTTP.Affjax (URL)
 import Network.HTTP.Affjax.Request (toRequest, class Requestable)
 import Text.Parsing.StringParser (ParseError)
@@ -209,3 +211,61 @@ instance encodeJsonAttachment :: J.EncodeJson Attachment where
                   ~> "elements" := elements
                   ~> J.jsonEmptyObject )
    ~> J.jsonEmptyObject
+
+data SendMessageResponseStatus = StatusOkay
+                               | StatusBadRequest
+                               | StatusUnknown Int
+
+-- There's a bijection here. Surely there's a typeclass for this.
+sendMessageResponseStatusFromInt :: Int -> SendMessageResponseStatus
+sendMessageResponseStatusFromInt i =
+  case i of
+    200 -> StatusOkay
+    400 -> StatusBadRequest
+    _   -> StatusUnknown i
+
+
+newtype SendMessageResponseError = SendMessageResponseError
+  { message :: String
+  , errorType :: String
+  , code :: Int
+  , fbtraceId :: String
+  }
+
+derive instance genericSendMessageResponseError :: Generic SendMessageResponseError
+
+instance showSendMessageResponseError :: Show SendMessageResponseError where
+  show = gShow
+
+instance eqSendMessageResponseError :: Eq SendMessageResponseError where
+  eq = gEq
+
+instance decodeMessageResponseError :: DecodeJson SendMessageResponseError where
+  decodeJson json = do
+    obj <- J.decodeJson json
+    message <- obj .? "message"
+    errorType <- obj .? "type"
+    code <- obj .? "code"
+    fbtraceId <- obj .? "fbtraceId"
+    pure $ SendMessageResponseError { message, errorType, code, fbtraceId }
+
+data SendMessageResponse = SendMessageResponse
+  { error :: Maybe SendMessageResponseError
+  }
+
+derive instance genericSendMessageResponse :: Generic SendMessageResponse
+
+instance showSendMessageResponse :: Show SendMessageResponse where
+  show = gShow
+
+instance eqSendMessageResponse :: Eq SendMessageResponse where
+  eq = gEq
+
+decodeMaybe :: forall a. DecodeJson a => J.Json -> Maybe a
+decodeMaybe = either (const Nothing) pure <<< J.decodeJson
+
+instance decodeMessageResponse :: DecodeJson SendMessageResponse where
+  decodeJson json = do
+    obj <- J.decodeJson json
+    error <- decodeMaybe <$> obj .? "error"
+    pure $ SendMessageResponse { error }
