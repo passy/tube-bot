@@ -7,8 +7,9 @@ import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
+import Bot.AffjaxHelper (doJsonRequest)
 import Bot.DB (RETHINKDB)
-import Bot.Types (RouteInfoRow(RouteInfoRow), LineStatusRow(LineStatusRow), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
+import Bot.Types (SendMessageResponse(SendMessageResponse), RouteInfoRow(RouteInfoRow), LineStatusRow(LineStatusRow), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
 import Bot.Unsafe (unsafeTaggedTraceId, unsafeTraceId)
 import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
@@ -117,14 +118,14 @@ callSendAPI
   :: forall e.
      Bot.MessengerConfig
   -> Bot.MessageResponse
-  -> Affjax.Affjax e Foreign
+  -> Aff (ajax :: AJAX | e) SendMessageResponse
 callSendAPI (Bot.MessengerConfig config) msg =
   let url = "https://graph.facebook.com/v2.7/me/messages"
       query = "?access_token=" <> config.pageAccessToken
       req = unsafeTaggedTraceId "REQUEST\n----------" $ Affjax.defaultRequest { method = Left POST
                                   , url = (url <> query)
                                   , content = Just msg }
-  in Affjax.affjax req
+  in doJsonRequest req
 
 listen
   :: forall e.

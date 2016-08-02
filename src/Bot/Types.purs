@@ -3,6 +3,7 @@ module Bot.Types where
 import Prelude
 import Data.Argonaut as J
 import Control.Alt ((<|>))
+import Control.Error.Util (note)
 import Control.Monad.Eff.Exception (Error)
 import Data.Argonaut (class DecodeJson, (~>), (:=), (.?))
 import Data.Either (either)
@@ -266,6 +267,7 @@ decodeMaybe = either (const Nothing) pure <<< J.decodeJson
 
 instance decodeMessageResponse :: DecodeJson SendMessageResponse where
   decodeJson json = do
-    obj <- J.decodeJson json
+    obj <- note "Expected object" $ J.toObject json
+    -- XXX: Meh, this fails now.
     error <- decodeMaybe <$> obj .? "error"
     pure $ SendMessageResponse { error }
