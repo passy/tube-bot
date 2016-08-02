@@ -2,6 +2,6 @@
 'use strict';
 
 exports.unsafeTraceId = function (s) {
-    console.log(s);
+    console.log(JSON.stringify(s, null, 2));
     return s;
 };
