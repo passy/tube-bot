@@ -8,11 +8,11 @@ import Control.Monad.Eff.Exception (Error)
 import Data.Argonaut (class DecodeJson, (~>), (:=), (.?))
 import Data.Either (either)
 import Data.Generic (class Generic, gShow, gEq)
-import Data.Map (Map)
 import Data.Maybe (Maybe(Nothing))
 import Network.HTTP.Affjax (URL)
 import Network.HTTP.Affjax.Request (toRequest, class Requestable)
 import Text.Parsing.StringParser (ParseError)
+import Bot.JsonHelper ((.??))
 
 type SequenceNumber = Int
 type MessageId = String
@@ -268,6 +268,5 @@ decodeMaybe = either (const Nothing) pure <<< J.decodeJson
 instance decodeMessageResponse :: DecodeJson SendMessageResponse where
   decodeJson json = do
     obj <- note "Expected object" $ J.toObject json
-    -- XXX: Meh, this fails now.
-    error <- decodeMaybe <$> obj .? "error"
+    error <- obj .?? "error"
     pure $ SendMessageResponse { error }
