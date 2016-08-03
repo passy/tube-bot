@@ -2,17 +2,16 @@ module Bot.Types where
 
 import Prelude
 import Data.Argonaut as J
+import Bot.JsonHelper ((.??))
 import Control.Alt ((<|>))
 import Control.Error.Util (note)
 import Control.Monad.Eff.Exception (Error)
-import Data.Argonaut (class DecodeJson, (~>), (:=), (.?))
-import Data.Either (either)
+import Data.Argonaut ((~>), (:=), (.?))
 import Data.Generic (class Generic, gShow, gEq)
-import Data.Maybe (Maybe(Nothing))
+import Data.Maybe (Maybe())
 import Network.HTTP.Affjax (URL)
 import Network.HTTP.Affjax.Request (toRequest, class Requestable)
 import Text.Parsing.StringParser (ParseError)
-import Bot.JsonHelper ((.??))
 
 type SequenceNumber = Int
 type MessageId = String
@@ -241,7 +240,7 @@ instance showSendMessageResponseError :: Show SendMessageResponseError where
 instance eqSendMessageResponseError :: Eq SendMessageResponseError where
   eq = gEq
 
-instance decodeMessageResponseError :: DecodeJson SendMessageResponseError where
+instance decodeMessageResponseError :: J.DecodeJson SendMessageResponseError where
   decodeJson json = do
     obj <- J.decodeJson json
     message <- obj .? "message"
@@ -262,11 +261,27 @@ instance showSendMessageResponse :: Show SendMessageResponse where
 instance eqSendMessageResponse :: Eq SendMessageResponse where
   eq = gEq
 
-decodeMaybe :: forall a. DecodeJson a => J.Json -> Maybe a
-decodeMaybe = either (const Nothing) pure <<< J.decodeJson
-
-instance decodeMessageResponse :: DecodeJson SendMessageResponse where
+instance decodeSendMessageResponse :: J.DecodeJson SendMessageResponse where
   decodeJson json = do
     obj <- note "Expected object" $ J.toObject json
     error <- obj .?? "error"
     pure $ SendMessageResponse { error }
+
+data ThreadSettingsRequest = Greeting { text :: String }
+
+derive instance genericThreadSettingsRequest :: Generic ThreadSettingsRequest
+
+instance showThreadSettingsRequest :: Show ThreadSettingsRequest where
+  show = gShow
+
+instance eqThreadSettingsRequest :: Eq ThreadSettingsRequest where
+  eq = gEq
+
+instance encodeThreadSettingsRequest :: J.EncodeJson ThreadSettingsRequest where
+  encodeJson (Greeting { text })
+    = "setting_type" := "greeting"
+   ~> "greeting" := ("text" := text ~> J.jsonEmptyObject)
+   ~> J.jsonEmptyObject
+
+instance requestableThreadSettingsRequest :: Requestable ThreadSettingsRequest where
+  toRequest = toRequest <<< J.encodeJson

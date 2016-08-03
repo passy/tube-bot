@@ -1,12 +1,15 @@
 module Bot where
 
 import Prelude
+import Bot.DB as DB
+import Bot.Types as Bot
+import Data.String as String
+import Network.HTTP.Affjax as Affjax
+import Text.Parsing.StringParser.Combinators as Parser
+import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (AjaxError, doJsonRequest')
 import Bot.DB (RETHINKDB)
-import Bot.DB as DB
-import Bot.Types (SendMessageResponse, RouteInfoRow(RouteInfoRow), LineStatusRow(LineStatusRow), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
-import Bot.Types as Bot
-import Bot.Unsafe (unsafeTaggedTraceId)
+import Bot.Types (ThreadSettingsRequest(Greeting), SendMessageResponse, RouteInfoRow(RouteInfoRow), LineStatusRow(LineStatusRow), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
 import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
@@ -18,15 +21,11 @@ import Data.Either (Either(Left, Right))
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
-import Data.String as String
 import Data.Traversable (for)
 import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (AJAX)
-import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser (Parser, runParser)
-import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String (skipSpaces)
-import Text.Parsing.StringParser.String as StringParser
 
 listToString :: List Char -> String
 listToString = String.fromCharArray <<< toUnfoldable
@@ -124,7 +123,20 @@ callSendAPI
 callSendAPI (Bot.MessengerConfig config) msg =
   let url = "https://graph.facebook.com/v2.7/me/messages"
       query = "?access_token=" <> config.pageAccessToken
-      req = unsafeTaggedTraceId "REQUEST\n----------" $ Affjax.defaultRequest { method = Left POST
+      req = Affjax.defaultRequest { method = Left POST
+                                  , url = (url <> query)
+                                  , content = Just msg }
+  in doJsonRequest' req
+
+callThreadSettingsAPI
+  :: forall e.
+     Bot.MessengerConfig
+  -> Bot.ThreadSettingsRequest
+  -> Aff (ajax :: AJAX | e) (Either AjaxError Unit)
+callThreadSettingsAPI (Bot.MessengerConfig config) msg =
+  let url = "https://graph.facebook.com/v2.7/me/thread_settings"
+      query = "?access_token=" <> config.pageAccessToken
+      req = Affjax.defaultRequest { method = Left POST
                                   , url = (url <> query)
                                   , content = Just msg }
   in doJsonRequest' req
@@ -154,8 +166,16 @@ listen config = void <<< launchAff $ do
     extractName (LineStatusRow { name }) = name
     extractRoute (RouteName name) = name
 
-    -- TODO: Fallback if empty
     extractInfoImageUrl info =
       case info of
         Just (RouteInfoRow r) -> r.image_url
         Nothing -> "https://cldup.com/WeSoPrcj4I.svg"
+
+setupThreadSettings
+  :: forall e.
+     Bot.MessengerConfig
+  -> Eff (ajax :: AJAX, err :: EXCEPTION | e) Unit
+setupThreadSettings config = void <<< launchAff $ do
+  unsafeTrace $ "Setting up thread."
+  let greeting = Greeting { text: "Welcome to Disruption Bot! Say 'subscribe <line>' to get update for any London Underground line." }
+  callThreadSettingsAPI config greeting

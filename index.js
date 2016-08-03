@@ -17,6 +17,7 @@ app.use(express.static('public'));
 config.validate();
 
 const APP_CONFIG = config.APP_CONFIG;
+const BOT_CONFIG = {pageAccessToken: APP_CONFIG.PAGE_ACCESS_TOKEN};
 
 /*
  * Use your own validation token. Check that the token used in the Webhook
@@ -61,7 +62,7 @@ app.post('/webhook', (req, res) => {
                 if (messagingEvent.optin) {
                     messenger.receivedAuthentication(messagingEvent);
                 } else if (messagingEvent.message && messagingEvent.message.is_echo) {
-                    Bot.handleReceivedMessage({pageAccessToken: APP_CONFIG.PAGE_ACCESS_TOKEN})(messagingEvent)();
+                    Bot.handleReceivedMessage(BOT_CONFIG)(messagingEvent)();
                 } else if (messagingEvent.delivery) {
                     messenger.receivedDeliveryConfirmation(messagingEvent);
                 } else if (messagingEvent.postback) {
@@ -133,7 +134,8 @@ function verifyRequestSignature(req, res, buf) {
 app.listen(app.get('port'), function () {
     console.log('Node app is running on port', app.get('port'));
 
-    Bot.listen({pageAccessToken: APP_CONFIG.PAGE_ACCESS_TOKEN})();
+    Bot.setupThreadSettings(BOT_CONFIG)();
+    Bot.listen(BOT_CONFIG)();
 });
 
 module.exports = app;

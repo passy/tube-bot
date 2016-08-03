@@ -34,7 +34,7 @@ doJsonRequest'
     (DecodeJson a, Requestable b)
   => AffjaxRequest b
   -> Aff (ajax :: AJAX | e) (Either AjaxError a)
-doJsonRequest' = runExceptT <<< doJsonRequest
+doJsonRequest' = runExceptT <<< doJsonRequest 
 
 getJson
   :: forall m a.
