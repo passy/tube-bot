@@ -1,34 +1,32 @@
 module Bot where
 
 import Prelude
-import Bot.DB as DB
-import Bot.Types as Bot
-import Data.String as String
-import Network.HTTP.Affjax as Affjax
-import Text.Parsing.StringParser.Combinators as Parser
-import Text.Parsing.StringParser.String as StringParser
-import Bot.AffjaxHelper (doJsonRequest)
+import Bot.AffjaxHelper (AjaxError, doJsonRequest')
 import Bot.DB (RETHINKDB)
-import Bot.Types (SendMessageResponse(SendMessageResponse), RouteInfoRow(RouteInfoRow), LineStatusRow(LineStatusRow), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
-import Bot.Unsafe (unsafeTaggedTraceId, unsafeTraceId)
+import Bot.DB as DB
+import Bot.Types (SendMessageResponse, RouteInfoRow(RouteInfoRow), LineStatusRow(LineStatusRow), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
+import Bot.Types as Bot
+import Bot.Unsafe (unsafeTaggedTraceId)
 import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log)
-import Control.Monad.Eff.Exception (EXCEPTION, try, error)
-import Data.Argonaut (Json)
-import Data.Argonaut.Decode (decodeJson)
+import Control.Monad.Eff.Console (CONSOLE)
+import Control.Monad.Eff.Exception (EXCEPTION, error, try)
+import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Either (Either(Left, Right))
-import Data.Foreign (Foreign)
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
-import Data.Traversable (traverse, for)
+import Data.String as String
+import Data.Traversable (for)
 import Global.Unsafe (unsafeStringify)
-import Network.HTTP.Affjax (AffjaxResponse, AJAX)
+import Network.HTTP.Affjax (AJAX)
+import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser (Parser, runParser)
+import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String (skipSpaces)
+import Text.Parsing.StringParser.String as StringParser
 
 listToString :: List Char -> String
 listToString = String.fromCharArray <<< toUnfoldable
@@ -58,13 +56,17 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
   let msg = case res of
               Left err -> pure $ Bot.TmplParseError { err }
               Right cmd -> evalCommand sender cmd
+
+  -- The error handling here is dreadful. Help welcome!
   result <- try $ void $ launchAff $ do
     res' <- callSendAPI config =<< renderTemplate sender <$> msg
-    unsafeTrace $ "RESPONSE\n-------\n" <> unsafeStringify res'
-    pure res'
+    case res' of
+      Left err -> unsafeThrow $ show err
+      Right a -> pure a
+
   case result of
     Right _ -> pure unit
-    Left err -> log $ "ERROR: " <> show err
+    Left err -> unsafeThrow $ show err
 
 renderTemplate
   :: Bot.User
@@ -118,14 +120,14 @@ callSendAPI
   :: forall e.
      Bot.MessengerConfig
   -> Bot.MessageResponse
-  -> Aff (ajax :: AJAX | e) SendMessageResponse
+  -> Aff (ajax :: AJAX | e) (Either AjaxError SendMessageResponse)
 callSendAPI (Bot.MessengerConfig config) msg =
   let url = "https://graph.facebook.com/v2.7/me/messages"
       query = "?access_token=" <> config.pageAccessToken
       req = unsafeTaggedTraceId "REQUEST\n----------" $ Affjax.defaultRequest { method = Left POST
                                   , url = (url <> query)
                                   , content = Just msg }
-  in doJsonRequest req
+  in doJsonRequest' req
 
 listen
   :: forall e.
