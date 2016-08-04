@@ -225,32 +225,32 @@ sendMessageResponseStatusFromInt i =
     _   -> StatusUnknown i
 
 
-newtype SendMessageResponseError = SendMessageResponseError
+newtype FacebookError = FacebookError
   { message :: String
   , errorType :: String
   , code :: Int
   , fbtraceId :: String
   }
 
-derive instance genericSendMessageResponseError :: Generic SendMessageResponseError
+derive instance genericFacebookError :: Generic FacebookError
 
-instance showSendMessageResponseError :: Show SendMessageResponseError where
+instance showFacebookError :: Show FacebookError where
   show = gShow
 
-instance eqSendMessageResponseError :: Eq SendMessageResponseError where
+instance eqFacebookError :: Eq FacebookError where
   eq = gEq
 
-instance decodeMessageResponseError :: J.DecodeJson SendMessageResponseError where
+instance decodeMessageResponseError :: J.DecodeJson FacebookError where
   decodeJson json = do
     obj <- J.decodeJson json
     message <- obj .? "message"
     errorType <- obj .? "type"
     code <- obj .? "code"
     fbtraceId <- obj .? "fbtraceId"
-    pure $ SendMessageResponseError { message, errorType, code, fbtraceId }
+    pure $ FacebookError { message, errorType, code, fbtraceId }
 
 data SendMessageResponse = SendMessageResponse
-  { error :: Maybe SendMessageResponseError
+  { error :: Maybe FacebookError
   }
 
 derive instance genericSendMessageResponse :: Generic SendMessageResponse
@@ -286,7 +286,8 @@ instance encodeThreadSettingsRequest :: J.EncodeJson ThreadSettingsRequest where
 instance requestableThreadSettingsRequest :: Requestable ThreadSettingsRequest where
   toRequest = toRequest <<< J.encodeJson
 
-newtype ThreadSettingsResponse = ThreadSettingsResponse { result :: String }
+-- This should be s/Response/Success and FacebookError as alternative.
+data ThreadSettingsResponse = ThreadSettingsResponse { result :: String }
 
 derive instance genericThreadSettingsResponse :: Generic ThreadSettingsResponse
 

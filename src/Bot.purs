@@ -15,7 +15,7 @@ import Control.Monad.Aff.Console (log, logShow)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Exception (EXCEPTION, error, try)
+import Control.Monad.Eff.Exception (message, EXCEPTION, error, try)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Either (Either(Left, Right))
 import Data.HTTP.Method (Method(POST))
@@ -69,7 +69,7 @@ renderTemplate
 renderTemplate user (Bot.TmplPlainText { text }) =
   Bot.RspText { text: text, recipient: user }
 renderTemplate user (Bot.TmplGenericError { err }) =
-  Bot.RspText { text: "Sorry, an error has occurred: " <> show err
+  Bot.RspText { text: "Sorry, an error has occurred: " <> message err
               , recipient: user }
 renderTemplate user (Bot.TmplParseError { err }) =
   Bot.RspText { text: "Sorry, I didn't get that. " <> show err

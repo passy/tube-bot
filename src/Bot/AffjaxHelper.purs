@@ -8,6 +8,7 @@ import Control.Monad.Error.Class (throwError)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Either (either)
+import Data.String (joinWith)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, AffjaxResponse, affjax)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
@@ -17,7 +18,11 @@ data AjaxError = UnexpectedHTTPStatus (AffjaxResponse String)
 
 instance showAjaxError :: Show AjaxError where
   show (UnexpectedHTTPStatus resp) =
-    "AJAX request failed with code: " <> show resp.status
+    joinWith "" [ "AJAX request failed with code "
+                , show resp.status
+                , " and content '"
+                , resp.response
+                , "''" ]
   show (DecodingError str) =
     "Decoding failed: " <> str
 
