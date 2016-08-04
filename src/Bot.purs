@@ -7,7 +7,7 @@ import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
-import Bot.AffjaxHelper (AjaxError, doJsonRequest')
+import Bot.AffjaxHelper (doJsonRequest)
 import Bot.DB (RETHINKDB)
 import Bot.Types (ThreadSettingsRequest(Greeting), SendMessageResponse, RouteInfoRow(RouteInfoRow), LineStatusRow(LineStatusRow), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
 import Control.Alt ((<|>))
@@ -57,11 +57,7 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
               Right cmd -> evalCommand sender cmd
 
   -- The error handling here is dreadful. Help welcome!
-  result <- try $ void $ launchAff $ do
-    res' <- callSendAPI config =<< renderTemplate sender <$> msg
-    case res' of
-      Left err -> unsafeThrow $ show err
-      Right a -> pure a
+  result <- try $ void $ launchAff $ callSendAPI config =<< renderTemplate sender <$> msg
 
   case result of
     Right _ -> pure unit
@@ -119,27 +115,27 @@ callSendAPI
   :: forall e.
      Bot.MessengerConfig
   -> Bot.MessageResponse
-  -> Aff (ajax :: AJAX | e) (Either AjaxError SendMessageResponse)
+  -> Aff (ajax :: AJAX | e) SendMessageResponse
 callSendAPI (Bot.MessengerConfig config) msg =
   let url = "https://graph.facebook.com/v2.7/me/messages"
       query = "?access_token=" <> config.pageAccessToken
       req = Affjax.defaultRequest { method = Left POST
                                   , url = (url <> query)
                                   , content = Just msg }
-  in doJsonRequest' req
+  in doJsonRequest req
 
 callThreadSettingsAPI
   :: forall e.
      Bot.MessengerConfig
   -> Bot.ThreadSettingsRequest
-  -> Aff (ajax :: AJAX | e) (Either AjaxError Unit)
+  -> Aff (ajax :: AJAX | e) Unit
 callThreadSettingsAPI (Bot.MessengerConfig config) msg =
   let url = "https://graph.facebook.com/v2.7/me/thread_settings"
       query = "?access_token=" <> config.pageAccessToken
       req = Affjax.defaultRequest { method = Left POST
                                   , url = (url <> query)
                                   , content = Just msg }
-  in doJsonRequest' req
+  in doJsonRequest req
 
 listen
   :: forall e.

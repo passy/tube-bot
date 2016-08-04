@@ -3,6 +3,7 @@ module Bot.AffjaxHelper where
 import Prelude
 import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.Class (liftAff, class MonadAff)
+import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (class MonadError, throwError)
 import Control.Monad.Except (runExceptT)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
@@ -22,27 +23,20 @@ instance showAjaxError :: Show AjaxError where
     "Decoding failed: " <> str
 
 doJsonRequest
-  :: forall e a b m.
-    (DecodeJson a, Requestable b, MonadAff (ajax :: AJAX | e) m, MonadError AjaxError m)
-  => AffjaxRequest b
-  -> m a
-doJsonRequest req = do
-  liftAff (affjax req) >>= getJson
-
-doJsonRequest'
   :: forall e a b.
     (DecodeJson a, Requestable b)
   => AffjaxRequest b
-  -> Aff (ajax :: AJAX | e) (Either AjaxError a)
-doJsonRequest' = runExceptT <<< doJsonRequest 
+  -> Aff (ajax :: AJAX | e) a
+doJsonRequest req = do
+  liftAff (affjax req) >>= getJson
 
 getJson
-  :: forall m a.
-     (DecodeJson a, MonadError AjaxError m)
+  :: forall e a.
+     DecodeJson a
   => AffjaxResponse String
-  -> m a
+  -> Aff e a
 getJson resp = do
   when (resp.status /= StatusCode 200) $
-    throwError $ UnexpectedHTTPStatus resp
+    throwError <<< error <<< show $ UnexpectedHTTPStatus resp
   let result = jsonParser resp.response >>= decodeJson
-  either (throwError <<< DecodingError) pure result
+  either (throwError <<< error <<< show <<< DecodingError) pure result
