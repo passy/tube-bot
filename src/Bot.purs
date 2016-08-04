@@ -1,12 +1,17 @@
 module Bot where
 
 import Prelude
-import Bot.AffjaxHelper (doJsonRequest)
-import Bot.DB (RETHINKDB)
 import Bot.DB as DB
 import Bot.Types as Bot
+import Data.String as String
+import Network.HTTP.Affjax as Affjax
+import Text.Parsing.StringParser.Combinators as Parser
+import Text.Parsing.StringParser.String as StringParser
+import Bot.AffjaxHelper (doJsonRequest)
+import Bot.DB (RETHINKDB)
 import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
+import Control.Monad.Aff.Console (log, logShow)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
@@ -16,14 +21,10 @@ import Data.Either (Either(Left, Right))
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
-import Data.String as String
 import Data.Traversable (for)
 import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (AJAX)
-import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser (Parser, runParser)
-import Text.Parsing.StringParser.Combinators as Parser
-import Text.Parsing.StringParser.String as StringParser
 
 listToString :: List Char -> String
 listToString = String.fromCharArray <<< toUnfoldable
@@ -168,8 +169,9 @@ listen config = void <<< launchAff $ do
 setupThreadSettings
   :: forall e.
      Bot.MessengerConfig
-  -> Eff (ajax :: AJAX, err :: EXCEPTION | e) Unit
+  -> Eff (ajax :: AJAX, err :: EXCEPTION, console :: CONSOLE | e) Unit
 setupThreadSettings config = void <<< launchAff $ do
-  unsafeTrace $ "Setting up thread."
+  log $ "Setting up thread."
   let greeting = Bot.Greeting { text: "Welcome to Disruption Bot! Say 'subscribe <line>' to get update for any London Underground line." }
-  callThreadSettingsAPI config greeting
+  res <- callThreadSettingsAPI config greeting
+  logShow res
