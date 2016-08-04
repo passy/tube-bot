@@ -1,15 +1,10 @@
 module Bot where
 
 import Prelude
-import Bot.DB as DB
-import Bot.Types as Bot
-import Data.String as String
-import Network.HTTP.Affjax as Affjax
-import Text.Parsing.StringParser.Combinators as Parser
-import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (doJsonRequest)
 import Bot.DB (RETHINKDB)
-import Bot.Types (ThreadSettingsRequest(Greeting), SendMessageResponse, RouteInfoRow(RouteInfoRow), LineStatusRow(LineStatusRow), RouteName(RouteName), Template(TmplGenericImage, TmplImage, TmplParseError, TmplGenericError, TmplPlainText))
+import Bot.DB as DB
+import Bot.Types as Bot
 import Control.Alt ((<|>))
 import Control.Monad.Aff (forkAff, Aff, launchAff)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
@@ -21,24 +16,27 @@ import Data.Either (Either(Left, Right))
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
+import Data.String as String
 import Data.Traversable (for)
 import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (AJAX)
+import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser (Parser, runParser)
-import Text.Parsing.StringParser.String (skipSpaces)
+import Text.Parsing.StringParser.Combinators as Parser
+import Text.Parsing.StringParser.String as StringParser
 
 listToString :: List Char -> String
 listToString = String.fromCharArray <<< toUnfoldable
 
 channelCommandParser
   :: String
-  -> ({ route :: RouteName } -> Bot.Command)
+  -> ({ route :: Bot.RouteName } -> Bot.Command)
   -> Parser Bot.Command
 channelCommandParser str ctor = do
   void $ StringParser.string str
-  skipSpaces
+  StringParser.skipSpaces
   name <- listToString <$> Parser.many1 StringParser.anyLetter
-  pure $ ctor { route: RouteName name }
+  pure $ ctor { route: Bot.RouteName name }
 
 commandParser :: Parser Bot.Command
 commandParser =
@@ -67,19 +65,19 @@ renderTemplate
   :: Bot.User
   -> Bot.Template
   -> Bot.MessageResponse
-renderTemplate user (TmplPlainText { text }) =
+renderTemplate user (Bot.TmplPlainText { text }) =
   Bot.RspText { text: text, recipient: user }
-renderTemplate user (TmplGenericError { err }) =
+renderTemplate user (Bot.TmplGenericError { err }) =
   Bot.RspText { text: "Sorry, an error has occurred: " <> show err
               , recipient: user }
-renderTemplate user (TmplParseError { err }) =
+renderTemplate user (Bot.TmplParseError { err }) =
   Bot.RspText { text: "Sorry, I didn't get that. " <> show err
               , recipient: user }
-renderTemplate user (TmplImage { imageUrl }) =
+renderTemplate user (Bot.TmplImage { imageUrl }) =
   let att = Bot.AttImage { url: imageUrl }
   in Bot.RspAttachment { attachment: att
                        , recipient: user }
-renderTemplate user (TmplGenericImage { title, subtitle, imageUrl }) =
+renderTemplate user (Bot.TmplGenericImage { title, subtitle, imageUrl }) =
   let el = Bot.Element { title: title
                        , subtitle: subtitle
                        , imageUrl: Just imageUrl
@@ -97,7 +95,7 @@ evalCommand
 evalCommand sender = go
   where
     go (Bot.CmdSubscribe channel) = do
-      let extractRouteName (RouteInfoRow { name: RouteName name }) = name
+      let extractRouteName (Bot.RouteInfoRow { name: Bot.RouteName name }) = name
       routeInfo <- DB.findRouteByName channel.route
       case routeInfo of
         Nothing ->
@@ -115,7 +113,7 @@ callSendAPI
   :: forall e.
      Bot.MessengerConfig
   -> Bot.MessageResponse
-  -> Aff (ajax :: AJAX | e) SendMessageResponse
+  -> Aff (ajax :: AJAX | e) Bot.SendMessageResponse
 callSendAPI (Bot.MessengerConfig config) msg =
   let url = "https://graph.facebook.com/v2.7/me/messages"
       query = "?access_token=" <> config.pageAccessToken
@@ -128,7 +126,7 @@ callThreadSettingsAPI
   :: forall e.
      Bot.MessengerConfig
   -> Bot.ThreadSettingsRequest
-  -> Aff (ajax :: AJAX | e) Unit
+  -> Aff (ajax :: AJAX | e) Bot.ThreadSettingsResponse
 callThreadSettingsAPI (Bot.MessengerConfig config) msg =
   let url = "https://graph.facebook.com/v2.7/me/thread_settings"
       query = "?access_token=" <> config.pageAccessToken
@@ -159,12 +157,12 @@ listen config = void <<< launchAff $ do
       callSendAPI config $ renderTemplate user tmpl
 
   where
-    extractName (LineStatusRow { name }) = name
-    extractRoute (RouteName name) = name
+    extractName (Bot.LineStatusRow { name }) = name
+    extractRoute (Bot.RouteName name) = name
 
     extractInfoImageUrl info =
       case info of
-        Just (RouteInfoRow r) -> r.image_url
+        Just (Bot.RouteInfoRow r) -> r.image_url
         Nothing -> "https://cldup.com/WeSoPrcj4I.svg"
 
 setupThreadSettings
@@ -173,5 +171,5 @@ setupThreadSettings
   -> Eff (ajax :: AJAX, err :: EXCEPTION | e) Unit
 setupThreadSettings config = void <<< launchAff $ do
   unsafeTrace $ "Setting up thread."
-  let greeting = Greeting { text: "Welcome to Disruption Bot! Say 'subscribe <line>' to get update for any London Underground line." }
+  let greeting = Bot.Greeting { text: "Welcome to Disruption Bot! Say 'subscribe <line>' to get update for any London Underground line." }
   callThreadSettingsAPI config greeting

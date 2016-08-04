@@ -2,13 +2,12 @@ module Bot.AffjaxHelper where
 
 import Prelude
 import Control.Monad.Aff (Aff)
-import Control.Monad.Aff.Class (liftAff, class MonadAff)
-import Control.Monad.Eff.Exception (error, Error)
-import Control.Monad.Error.Class (class MonadError, throwError)
-import Control.Monad.Except (runExceptT)
+import Control.Monad.Aff.Class (liftAff)
+import Control.Monad.Eff.Exception (error)
+import Control.Monad.Error.Class (throwError)
 import Data.Argonaut.Decode (class DecodeJson, decodeJson)
 import Data.Argonaut.Parser (jsonParser)
-import Data.Either (Either, either)
+import Data.Either (either)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, AffjaxResponse, affjax)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))

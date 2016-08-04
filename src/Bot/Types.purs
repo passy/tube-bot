@@ -285,3 +285,19 @@ instance encodeThreadSettingsRequest :: J.EncodeJson ThreadSettingsRequest where
 
 instance requestableThreadSettingsRequest :: Requestable ThreadSettingsRequest where
   toRequest = toRequest <<< J.encodeJson
+
+newtype ThreadSettingsResponse = ThreadSettingsResponse { result :: String }
+
+derive instance genericThreadSettingsResponse :: Generic ThreadSettingsResponse
+
+instance showThreadSettingsResponse :: Show ThreadSettingsResponse where
+  show = gShow
+
+instance eqThreadSettingsResponse :: Eq ThreadSettingsResponse where
+  eq = gEq
+
+instance decodeThreadSettingsResponse :: J.DecodeJson ThreadSettingsResponse where
+  decodeJson json = do
+    obj <- note "Expected object" $ J.toObject json
+    result <- obj .? "result"
+    pure $ ThreadSettingsResponse { result }
