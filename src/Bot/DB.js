@@ -106,6 +106,30 @@ exports._subscribeUserToRoute = function (recipient) {
     };
 };
 
+exports._unsubscribeUserFromRoute = function (recipient) {
+    return function (routeName) {
+        return function (eb) {
+            return function (cb) {
+                return function () {
+                    console.log('UNSUBSCRIBING', recipient, routeName);
+                    r.table('messenger_subscriptions')
+                        .get(routeName)
+                        .update({
+                            recipients: r.row('recipients').setDifference([recipient.id])
+                        })
+                        .run(function (err) {
+                            if (err) {
+                                eb(err)();
+                            } else {
+                                cb()();
+                            }
+                        });
+                };
+            };
+        };
+    };
+};
+
 /* Recipients For Disruption #rockbandnames */
 exports._findRecipientsForDisruption = function (lineName) {
     return function (eb) {

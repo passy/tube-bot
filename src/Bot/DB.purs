@@ -2,6 +2,7 @@ module Bot.DB
   ( disruptionChanges
   , findRecipientsForDisruption
   , subscribeUserToRoute
+  , unsubscribeUserFromRoute
   , findRouteByName
   , RETHINKDB) where
 
@@ -75,3 +76,18 @@ subscribeUserToRoute
   -> RouteName
   -> Aff.Aff (rethinkdb :: RETHINKDB | e) Unit
 subscribeUserToRoute u route = Aff.makeAff $ _subscribeUserToRoute u route
+
+foreign import _unsubscribeUserFromRoute
+  :: forall e f.
+     User
+  -> RouteName
+  -> (Error -> Eff.Eff e Unit)
+  -> (Unit -> Eff.Eff e Unit)
+  -> Eff.Eff (rethinkdb :: RETHINKDB | f) Unit
+
+unsubscribeUserFromRoute
+  :: forall e.
+     User
+  -> RouteName
+  -> Aff.Aff (rethinkdb :: RETHINKDB | e) Unit
+unsubscribeUserFromRoute u route = Aff.makeAff $ _unsubscribeUserFromRoute u route

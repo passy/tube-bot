@@ -15,7 +15,7 @@ import Control.Monad.Aff.Console (log, logShow)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Exception (message, EXCEPTION, error, try)
+import Control.Monad.Eff.Exception (EXCEPTION, message, try)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Either (Either(Left, Right))
 import Data.HTTP.Method (Method(POST))
@@ -95,8 +95,9 @@ evalCommand
   -> Aff (rethinkdb :: RETHINKDB | e) Bot.Template
 evalCommand sender = go
   where
+    extractRouteName (Bot.RouteInfoRow { name: Bot.RouteName name }) = name
+
     go (Bot.CmdSubscribe channel) = do
-      let extractRouteName (Bot.RouteInfoRow { name: Bot.RouteName name }) = name
       routeInfo <- DB.findRouteByName channel.route
       case routeInfo of
         Nothing ->
@@ -107,8 +108,16 @@ evalCommand sender = go
                                   <> extractRouteName r
                                   <> " line. Hooray!" }
 
-    go (Bot.CmdUnsubscribe channel) =
-      pure $ Bot.TmplGenericError { err: error "Sorry, unsubscribing is still in the works." }
+    go (Bot.CmdUnsubscribe channel) = do
+      routeInfo <- DB.findRouteByName channel.route
+      case routeInfo of
+        Nothing ->
+          pure $ Bot.TmplPlainText { text: "I haven't heard about that line. Sure you're subscribed to it?" }
+        Just r -> do
+          DB.unsubscribeUserFromRoute sender channel.route
+          pure $ Bot.TmplPlainText { text: "Sorry for the noise. You will no longer get updates for the "
+                                  <> extractRouteName r
+                                  <> " line." }
 
 callSendAPI
   :: forall e.
