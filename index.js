@@ -62,7 +62,13 @@ app.post('/webhook', (req, res) => {
                 if (messagingEvent.optin) {
                     messenger.receivedAuthentication(messagingEvent);
                 } else if (messagingEvent.message && !messagingEvent.message.is_echo) {
-                    Bot.handleReceivedMessage(BOT_CONFIG)(messagingEvent)();
+                    try {
+                        Bot.handleReceivedMessage(BOT_CONFIG)(messagingEvent)();
+                    } catch (err) {
+                        // This is bad, but FB will keep sending us the message
+                        // over and over unless we respond with 200.
+                        console.error('ERR handleReceivedMessage: ', err);
+                    }
                 } else if (messagingEvent.delivery) {
                     messenger.receivedDeliveryConfirmation(messagingEvent);
                 } else if (messagingEvent.postback) {
@@ -77,13 +83,12 @@ app.post('/webhook', (req, res) => {
                 }
             });
         });
-
-         // Assume all went well.
-         //
-         // You must send back a 200, within 20 seconds, to let us know you've
-         // successfully received the callback. Otherwise, the request will time out.
-        res.sendStatus(200);
     }
+
+    // Assume all went well.
+    // You must send back a 200, within 20 seconds, to let us know you've
+    // successfully received the callback. Otherwise, the request will time out.
+    res.sendStatus(200);
 });
 
 function constEq(a, b, minComp) {
