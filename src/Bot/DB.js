@@ -150,3 +150,19 @@ exports._findRecipientsForDisruption = function (lineName) {
         };
     };
 };
+
+exports._allRoutes = function (eb) {
+    return function (cb) {
+        return function () {
+            r.table('routes_info')
+            .run(function (err, res) {
+                if (err) {
+                    eb(err)();
+                    return;
+                }
+
+                cb(res)();
+            });
+        };
+    };
+};

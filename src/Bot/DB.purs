@@ -4,6 +4,7 @@ module Bot.DB
   , subscribeUserToRoute
   , unsubscribeUserFromRoute
   , findRouteByName
+  , getAllRoutes
   , RETHINKDB) where
 
 import Prelude
@@ -91,3 +92,14 @@ unsubscribeUserFromRoute
   -> RouteName
   -> Aff.Aff (rethinkdb :: RETHINKDB | e) Unit
 unsubscribeUserFromRoute u route = Aff.makeAff $ _unsubscribeUserFromRoute u route
+
+foreign import _allRoutes
+  :: forall e f.
+     (Error -> Eff.Eff e Unit)
+  -> (Array RouteInfoRow -> Eff.Eff e Unit)
+  -> Eff.Eff (rethinkdb :: RETHINKDB | f) Unit
+
+getAllRoutes
+  :: forall e.
+     Aff.Aff (rethinkdb :: RETHINKDB | e) (Array RouteInfoRow)
+getAllRoutes = Aff.makeAff _allRoutes

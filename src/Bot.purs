@@ -6,7 +6,6 @@ import Bot.Types as Bot
 import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
-import Text.Parsing.StringParser (try)
 import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (doJsonRequest)
 import Bot.DB (RETHINKDB)
@@ -25,10 +24,13 @@ import Data.Maybe (Maybe(Just, Nothing))
 import Data.Traversable (for)
 import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (AJAX)
-import Text.Parsing.StringParser (Parser, runParser)
+import Text.Parsing.StringParser (Parser, runParser, try)
 
 listToString :: List Char -> String
 listToString = String.fromCharArray <<< toUnfoldable
+
+maxMessageLength :: Int
+maxMessageLength = 320
 
 channelCommandParser
   :: String
@@ -46,7 +48,7 @@ listLinesParser
 listLinesParser cmd = try $ do
   void $ StringParser.string "show" <|> StringParser.string "list"
   StringParser.skipSpaces
-  void $ StringParser.string "lines"
+  void $ StringParser.string "lines" <|> StringParser.string "routes"
   pure cmd
 
 commandParser :: Parser Bot.Command
@@ -78,12 +80,12 @@ renderTemplate
   -> Bot.Template
   -> Bot.MessageResponse
 renderTemplate user (Bot.TmplPlainText { text }) =
-  Bot.RspText { text: text, recipient: user }
+  Bot.RspText { text: String.take maxMessageLength text, recipient: user }
 renderTemplate user (Bot.TmplGenericError { err }) =
-  Bot.RspText { text: "Sorry, an error has occurred: " <> Ex.message err
+  Bot.RspText { text: String.take maxMessageLength $ "Sorry, an error has occurred: " <> Ex.message err
               , recipient: user }
 renderTemplate user (Bot.TmplParseError { err }) =
-  Bot.RspText { text: "Sorry, I didn't get that. " <> show err
+  Bot.RspText { text: String.take maxMessageLength $ "Sorry, I didn't get that. " <> show err
               , recipient: user }
 renderTemplate user (Bot.TmplImage { imageUrl }) =
   let att = Bot.AttImage { url: imageUrl }
@@ -131,7 +133,11 @@ evalCommand sender = go
                                   <> " line." }
 
     go Bot.CmdListLines = do
-      pure $ Bot.TmplGenericError { err: Ex.error "Sorry, still working on this mate." }
+      let extract (Bot.RouteInfoRow { name: Bot.RouteName name }) = "- " <> name
+      routes <- map extract <$> DB.getAllRoutes
+      let header = "Here's a list of routes you can currently subscribe to:"
+
+      pure $ Bot.TmplPlainText { text: header <> "\n" <> String.joinWith "\n" routes }
 
 callSendAPI
   :: forall e.
