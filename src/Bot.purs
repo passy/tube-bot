@@ -3,6 +3,7 @@ module Bot where
 import Prelude
 import Bot.DB as DB
 import Bot.Types as Bot
+import Control.Monad.Eff.Exception as Ex
 import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
@@ -15,7 +16,6 @@ import Control.Monad.Aff.Console (log, logShow)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Exception as Ex
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Either (Either(Left, Right))
 import Data.HTTP.Method (Method(POST))
@@ -79,11 +79,12 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
     Left err -> unsafeThrow $ show err
 
 segmentResponse
-  :: forall a.
-     Int
+  :: forall a f.
+     Applicative f
+  => Int
   -> String
   -> (String -> { text :: String | a })
-  -> Array { text :: String | a }
+  -> f { text :: String | a }
 segmentResponse maxLength txt rsp =
   pure <<< rsp $ String.take maxMessageLength txt
 
