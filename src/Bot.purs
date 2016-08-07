@@ -36,7 +36,7 @@ channelCommandParser
 channelCommandParser str ctor = do
   void $ StringParser.string str
   StringParser.skipSpaces
-  name <- listToString <$> Parser.many1 StringParser.anyLetter
+  name <- listToString <$> Parser.manyTill StringParser.anyChar StringParser.eof
   pure $ ctor { route: Bot.RouteName name }
 
 commandParser :: Parser Bot.Command
