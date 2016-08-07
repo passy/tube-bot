@@ -64,33 +64,45 @@ handleReceivedMessage
   -> Eff (rethinkdb :: RETHINKDB, ajax :: AJAX, console :: CONSOLE | e) Unit
 handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: text }, sender }) = do
   let res = runParser commandParser text
-  let msg = case res of
+      tmpl :: forall e'. Aff (rethinkdb :: RETHINKDB | e') Bot.Template
+      tmpl = case res of
               Left err -> pure $ Bot.TmplParseError { err }
               Right cmd -> evalCommand sender cmd
 
   -- The error handling here is dreadful. Help welcome!
-  result <- Ex.try $ void $ launchAff $ callSendAPI config =<< renderTemplate sender <$> msg
+  result <- Ex.try $ void $ launchAff $ do
+    rsps <- renderTemplate sender <$> tmpl
+    for rsps $ callSendAPI config
 
   case result of
     Right _ -> pure unit
     Left err -> unsafeThrow $ show err
 
+segmentResponse
+  :: forall a.
+     Int
+  -> String
+  -> (String -> { text :: String | a })
+  -> Array { text :: String | a }
+segmentResponse maxLength txt rsp =
+  pure <<< rsp $ String.take maxMessageLength txt
+
 renderTemplate
   :: Bot.User
   -> Bot.Template
-  -> Bot.MessageResponse
+  -> Array Bot.MessageResponse
 renderTemplate user (Bot.TmplPlainText { text }) =
-  Bot.RspText { text: String.take maxMessageLength text, recipient: user }
+  Bot.RspText <$> segmentResponse maxMessageLength text (\t -> { text: t, recipient: user })
 renderTemplate user (Bot.TmplGenericError { err }) =
-  Bot.RspText { text: String.take maxMessageLength $ "Sorry, an error has occurred: " <> Ex.message err
-              , recipient: user }
+  pure $ Bot.RspText { text: String.take maxMessageLength $ "Sorry, an error has occurred: " <> Ex.message err
+                     , recipient: user }
 renderTemplate user (Bot.TmplParseError { err }) =
-  Bot.RspText { text: String.take maxMessageLength $ "Sorry, I didn't get that. " <> show err
-              , recipient: user }
+  pure $ Bot.RspText { text: String.take maxMessageLength $ "Sorry, I didn't get that. " <> show err
+                     , recipient: user }
 renderTemplate user (Bot.TmplImage { imageUrl }) =
   let att = Bot.AttImage { url: imageUrl }
-  in Bot.RspAttachment { attachment: att
-                       , recipient: user }
+  in pure $ Bot.RspAttachment { attachment: att
+                              , recipient: user }
 renderTemplate user (Bot.TmplGenericImage { title, subtitle, imageUrl }) =
   let el = Bot.Element { title: title
                        , subtitle: subtitle
@@ -98,8 +110,8 @@ renderTemplate user (Bot.TmplGenericImage { title, subtitle, imageUrl }) =
                        , itemUrl: Nothing
                        , buttons: [] }
       att = Bot.AttGenericTemplate { elements: pure el }
-  in Bot.RspAttachment { attachment: att
-                       , recipient: user }
+  in pure $ Bot.RspAttachment { attachment: att
+                              , recipient: user }
 
 evalCommand
   :: forall e.
@@ -184,7 +196,7 @@ listen config = void <<< launchAff $ do
                 { title: extractRoute <<< extractName $ disruption
                 , subtitle: pure txt
                 , imageUrl: extractInfoImageUrl routeInfo }
-      callSendAPI config $ renderTemplate user tmpl
+      for (renderTemplate user tmpl) $ callSendAPI config
 
   where
     extractName (Bot.LineStatusRow { name }) = name
