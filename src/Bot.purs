@@ -17,7 +17,9 @@ import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Data.Array ((:))
 import Data.Either (Either(Left, Right))
+import Data.Foldable (foldl)
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
@@ -78,15 +80,38 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
     Right _ -> pure unit
     Left err -> unsafeThrow $ show err
 
+segmentLines
+  :: Int
+  -> String
+  -> Array String
+segmentLines maxLength txt =
+  let fn { cur, list } line
+        | String.length cur + String.length line < maxLength =
+          { cur: cur <> line, list: list }
+        | String.length cur + String.length line >= maxLength =
+          { cur: line, list: cur : list }
+        | otherwise =
+          unsafeThrow "wat?"
+      res = foldl fn { cur: "", list: [] } (String.split "\n" $ txt)
+  in res.cur : res.list
+
 segmentResponse
-  :: forall a f.
-     Applicative f
-  => Int
+  :: forall a.
+     Int
   -> String
   -> (String -> { text :: String | a })
-  -> f { text :: String | a }
+  -> Array { text :: String | a }
 segmentResponse maxLength txt rsp =
-  pure <<< rsp $ String.take maxMessageLength txt
+  let fn { cur, list } line
+        | String.length cur + String.length line < maxLength =
+          { cur: cur <> line, list: list }
+        | String.length cur + String.length line >= maxLength =
+          { cur: line, list: cur : list }
+        | otherwise =
+          unsafeThrow "wat?"
+      res = foldl fn { cur: "", list: [] } (String.split "\n" $ txt)
+      segments = res.cur : res.list
+  in rsp <$> segments
 
 renderTemplate
   :: Bot.User
