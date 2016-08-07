@@ -122,6 +122,7 @@ instance requestableMessageResponse :: Requestable MessageResponse where
 
 data Command = CmdSubscribe { route :: RouteName }
              | CmdUnsubscribe { route :: RouteName }
+             | CmdListLines
 
 derive instance genericCommand :: Generic Command
 

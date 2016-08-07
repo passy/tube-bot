@@ -6,6 +6,7 @@ import Bot.Types as Bot
 import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
+import Text.Parsing.StringParser (try)
 import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (doJsonRequest)
 import Bot.DB (RETHINKDB)
@@ -15,7 +16,7 @@ import Control.Monad.Aff.Console (log, logShow)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Exception (EXCEPTION, message, try)
+import Control.Monad.Eff.Exception as Ex
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Either (Either(Left, Right))
 import Data.HTTP.Method (Method(POST))
@@ -39,10 +40,20 @@ channelCommandParser str ctor = do
   name <- listToString <$> Parser.manyTill StringParser.anyChar StringParser.eof
   pure $ ctor { route: Bot.RouteName name }
 
+listLinesParser
+  :: Bot.Command
+  -> Parser Bot.Command
+listLinesParser cmd = try $ do
+  void $ StringParser.string "show" <|> StringParser.string "list"
+  StringParser.skipSpaces
+  void $ StringParser.string "lines"
+  pure cmd
+
 commandParser :: Parser Bot.Command
 commandParser =
   channelCommandParser "subscribe" Bot.CmdSubscribe
     <|> channelCommandParser "unsubscribe" Bot.CmdUnsubscribe
+    <|> listLinesParser Bot.CmdListLines
 
 handleReceivedMessage
   :: forall e.
@@ -56,7 +67,7 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
               Right cmd -> evalCommand sender cmd
 
   -- The error handling here is dreadful. Help welcome!
-  result <- try $ void $ launchAff $ callSendAPI config =<< renderTemplate sender <$> msg
+  result <- Ex.try $ void $ launchAff $ callSendAPI config =<< renderTemplate sender <$> msg
 
   case result of
     Right _ -> pure unit
@@ -69,7 +80,7 @@ renderTemplate
 renderTemplate user (Bot.TmplPlainText { text }) =
   Bot.RspText { text: text, recipient: user }
 renderTemplate user (Bot.TmplGenericError { err }) =
-  Bot.RspText { text: "Sorry, an error has occurred: " <> message err
+  Bot.RspText { text: "Sorry, an error has occurred: " <> Ex.message err
               , recipient: user }
 renderTemplate user (Bot.TmplParseError { err }) =
   Bot.RspText { text: "Sorry, I didn't get that. " <> show err
@@ -119,6 +130,9 @@ evalCommand sender = go
                                   <> extractRouteName r
                                   <> " line." }
 
+    go Bot.CmdListLines = do
+      pure $ Bot.TmplGenericError { err: Ex.error "Sorry, still working on this mate." }
+
 callSendAPI
   :: forall e.
      Bot.MessengerConfig
@@ -148,7 +162,7 @@ callThreadSettingsAPI (Bot.MessengerConfig config) msg =
 listen
   :: forall e.
      Bot.MessengerConfig
-  -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, err :: EXCEPTION | e) Unit
+  -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, err :: Ex.EXCEPTION | e) Unit
 listen config = void <<< launchAff $ do
   disruption <- DB.disruptionChanges
   unsafeTrace $ "Obtained new disruption " <> unsafeStringify disruption
@@ -178,7 +192,7 @@ listen config = void <<< launchAff $ do
 setupThreadSettings
   :: forall e.
      Bot.MessengerConfig
-  -> Eff (ajax :: AJAX, err :: EXCEPTION, console :: CONSOLE | e) Unit
+  -> Eff (ajax :: AJAX, err :: Ex.EXCEPTION, console :: CONSOLE | e) Unit
 setupThreadSettings config = void <<< launchAff $ do
   log $ "Setting up thread."
   let greeting = Bot.Greeting { text: "Welcome to Disruption Bot! Say 'subscribe <line>' to get update for any London Underground line." }
