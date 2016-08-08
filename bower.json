@@ -33,6 +33,8 @@
     "purescript-argonaut": "^1.0.0",
     "purescript-unsafe-coerce": "^1.0.0",
     "purescript-errors": "^1.0.0",
-    "purescript-psci-support": "^1.0.0"
+    "purescript-psci-support": "^1.0.0",
+    "purescript-test-unit": "^9.0.0",
+    "purescript-quickcheck": "^1.0.0"
   }
 }
