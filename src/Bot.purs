@@ -123,7 +123,7 @@ renderTemplate user (Bot.TmplGenericError { err }) =
   pure $ Bot.RspText { text: String.take maxMessageLength $ "Sorry, an error has occurred: " <> Ex.message err
                      , recipient: user }
 renderTemplate user (Bot.TmplParseError { err }) =
-  pure $ Bot.RspText { text: String.take maxMessageLength $ "Sorry, I didn't get that. " <> show err
+  pure $ Bot.RspText { text: String.take maxMessageLength $ "Sorry, I didn't get that. Error: " <> show err
                      , recipient: user }
 renderTemplate user (Bot.TmplImage { imageUrl }) =
   let att = Bot.AttImage { url: imageUrl }
