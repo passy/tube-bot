@@ -43,9 +43,8 @@ main = runTest do
       Assert.equal "111\n222\n333\n444\n555" (wrapStringAtColumn 3 input)
     test "lines are always shorter than the max length" do
       quickCheck (\length str ->
-        let res = wrapStringAtColumn length str
-        in
-          if length < 1 then Success
-          else all (\s -> String.length s <= length) (String.split "\n" res)
-               <?> ("property didn't hold for s=" <> str <> ", l=" <> show length)
+        if length < 1 then Success
+        else let res = wrapStringAtColumn length str
+             in all (\s -> String.length s <= length) (String.split "\n" res)
+                <?> ("property didn't hold for s=" <> str <> ", l=" <> show length)
       )
