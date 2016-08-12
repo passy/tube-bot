@@ -2,7 +2,6 @@
     "appSecret": "",
     "pageAccessToken": "",
     "validationToken": "",
-    "serverURL": "https://example.com",
     "pageId": "",
     "rethinkdb": {
       "host": "192.168.99.100",

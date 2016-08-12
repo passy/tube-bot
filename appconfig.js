@@ -15,9 +15,6 @@ exports.APP_CONFIG = {
     VALIDATION_TOKEN: getConfig('MESSENGER_VALIDATION_TOKEN', 'validationToken'),
     // Generate a page access token for your page from the App Dashboard
     PAGE_ACCESS_TOKEN: getConfig('MESSENGER_PAGE_ACCESS_TOKEN', 'pageAccessToken'),
-    // URL where the app is running (include protocol). Used to point to scripts and
-    // assets located at this address.
-    SERVER_URL: getConfig('SERVER_URL', 'serverURL'),
     // ID of the page associated with this bot.
     PAGE_ID: getConfig('PAGE_ID', 'pageId'),
     RETHINKDB: config.get('rethinkdb')
@@ -25,7 +22,7 @@ exports.APP_CONFIG = {
 
 exports.validate = () => {
     const c = exports.APP_CONFIG;
-    if (!(c.APP_SECRET && c.VALIDATION_TOKEN && c.PAGE_ACCESS_TOKEN && c.SERVER_URL && c.RETHINKDB)) {
+    if (!(c.APP_SECRET && c.VALIDATION_TOKEN && c.PAGE_ACCESS_TOKEN && c.RETHINKDB)) {
         throw new Error('Missing config values');
     }
 };
