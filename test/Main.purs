@@ -2,7 +2,7 @@ module Test.Main where
 
 import Prelude
 
-import Bot.Strings (wrapStringAtColumn)
+import Bot.Strings (wrapStringAtColumn, wrapLine)
 
 import Data.String as String
 import Control.Monad.Aff.AVar (AVAR)
@@ -29,6 +29,9 @@ main
          | eff ) Unit
 main = runTest do
   suite "test max length" do
+    test "wrap long line" do
+      let input = "this line is too long"
+      Assert.equal ["this ","line ","is to","o lon","g"] (wrapLine 5 input)
     test "doesn't change conforming lines" do
       let input = "hello\nworld"
       Assert.equal input (wrapStringAtColumn 10 input)
