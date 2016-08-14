@@ -21,3 +21,10 @@ wrapLine :: Int -> String -> Array String
 wrapLine length str =
     if S.length str <= length then [str]
     else S.take length str : wrapLine length (S.drop length str)
+
+segmentMessage :: Int -> String -> Array String
+segmentMessage length str =
+  let wrappedStr = wrapStringAtColumn length str
+  -- TODO: Now ensure that each segment is never longer than `length` as
+  -- we have the invariant that each line is already capped to it.
+  in pure $ wrappedStr

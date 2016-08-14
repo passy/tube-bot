@@ -1,24 +1,41 @@
 module Test.Main where
 
 import Prelude
-
-import Bot.Strings (wrapStringAtColumn, wrapLine)
-
 import Data.String as String
+import Test.Unit.Assert as Assert
+import Bot.Strings (segmentMessage, wrapStringAtColumn, wrapLine)
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Random (RANDOM)
 import Data.Foldable (all)
-import Test.QuickCheck (Result(..), (===), (<?>))
+import Data.List (toUnfoldable)
+import Test.QuickCheck (Result, (===), (<?>))
+import Test.QuickCheck.Arbitrary (class Arbitrary)
+import Test.QuickCheck.Gen (Gen, listOf, chooseInt, sized, elements)
 import Test.Unit (suite, test)
 import Test.Unit.Console (TESTOUTPUT)
 import Test.Unit.Main (runTest)
 import Test.Unit.QuickCheck (quickCheck)
-import Test.Unit.Assert as Assert
 
 theCommutativeProperty :: Int -> Int -> Result
 theCommutativeProperty a b = (a + b) === (b + a)
+
+newtype Nat = Nat Int
+
+instance arbitraryNat :: Arbitrary Nat where
+  arbitrary = Nat <$> chooseInt 1 400
+
+newtype Message = Message String
+
+words :: Gen String
+words = elements "" ["hello", "world", "\n", "doggie", "good", "doggo", "pupper"]
+
+instance arbitraryMessage :: Arbitrary Message where
+  arbitrary = sized \n -> do
+    len <- chooseInt 0 n
+    lwords <- toUnfoldable <$> listOf len words
+    pure $ Message $ String.joinWith " " lwords
 
 main
   :: forall eff.
@@ -33,12 +50,11 @@ main = runTest do
       let input = "this line is too long"
       Assert.equal ["this ","line ","is to","o lon","g"] (wrapLine 5 input)
     test "wrapLine is always under limit" do
-      quickCheck (\length str ->
-        if length < 1 then Success
-        else let res = wrapStringAtColumn length str
-             in String.length str <= length
-                <?> ("property didn't hold for s=" <> str <> ", l=" <> show length)
-        )
+      quickCheck (\(Nat length) (Message str) ->
+        let res = wrapStringAtColumn length str
+        in String.length str <= length
+           <?> ("property didn't hold for s=" <> str <> ", l=" <> show length)
+      )
     test "doesn't change conforming lines" do
       let input = "hello\nworld"
       Assert.equal input (wrapStringAtColumn 10 input)
@@ -52,9 +68,15 @@ main = runTest do
       let input = "111222333\n444555"
       Assert.equal "111\n222\n333\n444\n555" (wrapStringAtColumn 3 input)
     test "lines are always shorter than the max length" do
-      quickCheck (\length str ->
-        if length < 1 then Success
-        else let res = wrapStringAtColumn length str
-             in all (\s -> String.length s <= length) (String.split "\n" res)
-                <?> ("property didn't hold for s=" <> str <> ", l=" <> show length)
+      quickCheck (\(Nat length) (Message str) ->
+        let res = wrapStringAtColumn length str
+        in all (\s -> String.length s <= length) (String.split "\n" res)
+           <?> ("property didn't hold for s=" <> str <> ", l=" <> show length)
+      )
+  suite "segment message" do
+    test "segments are shorter than max length" do
+      quickCheck (\(Nat length) (Message str) ->
+        let res = segmentMessage length str
+        in all (\s -> String.length s <= length) res
+           <?> ("property didn't hold for l=" <> show length <> ", s=" <> str)
       )
