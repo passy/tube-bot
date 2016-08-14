@@ -28,6 +28,9 @@ instance arbitraryNat :: Arbitrary Nat where
 
 newtype Message = Message String
 
+-- TODO: Consider adding emoji / unicode characters here. I deliberately exclude
+-- them at the moment as there currently is no way in which user messages are
+-- repeated back to the user.
 words :: Gen String
 words = elements "" ["hello", "world", "\n", "doggie", "good", "doggo", "pupper"]
 
