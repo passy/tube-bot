@@ -32,6 +32,13 @@ main = runTest do
     test "wrap long line" do
       let input = "this line is too long"
       Assert.equal ["this ","line ","is to","o lon","g"] (wrapLine 5 input)
+    test "wrapLine is always under limit" do
+      quickCheck (\length str ->
+        if length < 1 then Success
+        else let res = wrapStringAtColumn length str
+             in String.length str <= length
+                <?> ("property didn't hold for s=" <> str <> ", l=" <> show length)
+        )
     test "doesn't change conforming lines" do
       let input = "hello\nworld"
       Assert.equal input (wrapStringAtColumn 10 input)
