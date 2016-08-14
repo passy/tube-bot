@@ -49,10 +49,10 @@ main = runTest do
     test "wrap long line" do
       let input = "this line is too long"
       Assert.equal ["this ","line ","is to","o lon","g"] (wrapLine 5 input)
-    test "wrapLine is always under limit" do
+    test "individual lines in wrapStringAtColumn are always under limit" do
       quickCheck (\(Nat length) (Message str) ->
         let res = wrapStringAtColumn length str
-        in String.length str <= length
+        in all (\s -> String.length s <= length) (String.split "\n" res)
            <?> ("property didn't hold for s=" <> str <> ", l=" <> show length)
       )
     test "doesn't change conforming lines" do
