@@ -3,6 +3,7 @@ module Bot.Strings where
 import Prelude
 import Data.String as S
 import Data.Array ((:))
+import Data.Foldable (foldl)
 
 lines :: String -> Array String
 lines = S.split "\n"
@@ -25,6 +26,11 @@ wrapLine length str =
 segmentMessage :: Int -> String -> Array String
 segmentMessage length str =
   let wrappedStr = wrapStringAtColumn length str
-  -- TODO: Now ensure that each segment is never longer than `length` as
-  -- we have the invariant that each line is already capped to it.
-  in pure $ wrappedStr
+      lss = lines wrappedStr
+      -- Now ensure that each segment is never longer than `length` as
+      -- we have the invariant that each line is already capped to it.
+      f { res, cur } l
+        | S.length l + S.length cur <= length = { res, cur: cur <> l }
+        | otherwise = { res: cur : res, cur: "" }
+      r = foldl f { res: [], cur: "" } lss
+  in r.cur : r.res
