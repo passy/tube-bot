@@ -5,6 +5,7 @@ import Bot.DB as DB
 import Bot.Types as Bot
 import Control.Monad.Eff.Exception as Ex
 import Data.String as String
+import Bot.Strings as Strings
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
@@ -101,17 +102,8 @@ segmentResponse
   -> String
   -> (String -> { text :: String | a })
   -> Array { text :: String | a }
-segmentResponse maxLength txt rsp =
-  let fn { cur, list } line
-        | String.length cur + String.length line < maxLength =
-          { cur: cur <> line, list: list }
-        | String.length cur + String.length line >= maxLength =
-          { cur: line, list: cur : list }
-        | otherwise =
-          unsafeThrow "wat?"
-      res = foldl fn { cur: "", list: [] } (String.split "\n" $ txt)
-      segments = res.cur : res.list
-  in rsp <$> segments
+segmentResponse maxLength txt mapfn =
+  mapfn <$> Strings.segmentMessage maxLength txt
 
 renderTemplate
   :: Bot.User
