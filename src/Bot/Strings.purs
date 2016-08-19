@@ -14,7 +14,9 @@ unlines = S.joinWith "\n"
 wrapLine :: Int -> String -> Array String
 wrapLine length str =
     if S.length str <= length then pure str
-    else S.take length str : wrapLine length (S.drop length str)
+    else
+      let trimmed = S.trim str
+      in S.take length trimmed : wrapLine length (S.drop length trimmed)
 
 wrapStringAtColumn :: Int -> String -> String
 wrapStringAtColumn length str =

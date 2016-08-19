@@ -94,17 +94,10 @@ main = runTest do
       let res = segmentMessage 20 input
       Assert.equal [ "this is a relatively"
                    , "long message we want"
-                   , "to segment across m"
-                   , "ultiple payloads" ] res
+                   , "to segment across mu"
+                   , "ltiple payloads" ] res
 
     test "segments retain intermittend line breaks" do
-      let input = "this\ngoes\nover\nmany\nlines"
-      let res = segmentMessage 10 input
-      Assert.equal [ "this\ngoes"
-                   , "over\nmany"
-                   , "lines" ] res
-
-    test "test prop" do
       let input = "this\ngoes\nover\nmany\nlines"
       let res = segmentMessage 10 input
       Assert.equal [ "this\ngoes"
