@@ -28,8 +28,7 @@ newtype Disruption = Disruption
   , stops :: Array String }
 
 newtype RouteInfoRow = RouteInfoRow
-  { id :: String
-  , name :: RouteName
+  { name :: RouteName
   , image_url :: URL }
 
 derive instance genericRouteInfoRow :: Generic RouteInfoRow
