@@ -81,5 +81,32 @@ main = runTest do
       quickCheck (\(Nat length) (Message str) ->
         let res = segmentMessage length str
         in all (\s -> String.length s <= length) res
-           <?> ("property didn't hold for l=" <> show length <> ", s=" <> str)
+           <?> ("property didn't hold for l=" <> show length <> ", s=" <> show str)
       )
+
+    test "simple segments test" do
+      let input = "simple message"
+      let res = segmentMessage 7 input
+      Assert.equal [ "simple", "message" ] res
+
+    test "segments remain in order" do
+      let input = "this is a relatively\nlong message we want to segment across multiple payloads"
+      let res = segmentMessage 20 input
+      Assert.equal [ "this is a relatively"
+                   , "long message we want"
+                   , "to segment across m"
+                   , "ultiple payloads" ] res
+
+    test "segments retain intermittend line breaks" do
+      let input = "this\ngoes\nover\nmany\nlines"
+      let res = segmentMessage 10 input
+      Assert.equal [ "this\ngoes"
+                   , "over\nmany"
+                   , "lines" ] res
+
+    test "test prop" do
+      let input = "this\ngoes\nover\nmany\nlines"
+      let res = segmentMessage 10 input
+      Assert.equal [ "this\ngoes"
+                   , "over\nmany"
+                   , "lines" ] res
