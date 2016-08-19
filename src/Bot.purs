@@ -2,10 +2,10 @@ module Bot where
 
 import Prelude
 import Bot.DB as DB
+import Bot.Strings as Strings
 import Bot.Types as Bot
 import Control.Monad.Eff.Exception as Ex
 import Data.String as String
-import Bot.Strings as Strings
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
@@ -80,21 +80,6 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
   case result of
     Right _ -> pure unit
     Left err -> unsafeThrow $ show err
-
-segmentLines
-  :: Int
-  -> String
-  -> Array String
-segmentLines maxLength txt =
-  let fn { cur, list } line
-        | String.length cur + String.length line < maxLength =
-          { cur: cur <> line, list: list }
-        | String.length cur + String.length line >= maxLength =
-          { cur: line, list: cur : list }
-        | otherwise =
-          unsafeThrow "wat?"
-      res = foldl fn { cur: "", list: [] } (String.split "\n" $ txt)
-  in res.cur : res.list
 
 segmentResponse
   :: forall a.

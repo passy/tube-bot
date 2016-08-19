@@ -34,8 +34,8 @@ segmentMessage length str =
       -- Now ensure that each segment is never longer than `length` as
       -- we have the invariant that each line is already capped to it.
       f { res, cur, i } l
-        | S.length l + i <= length = { res, cur: snoc cur l, i: i + S.length l }
-        | otherwise = { res: snoc res cur, cur: pure l, i: S.length l }
+        | S.length l + i <= length = { res, cur: snoc cur l, i: i + S.length l + 1 }
+        | otherwise = { res: snoc res cur, cur: pure l, i: S.length l + 1 }
       r = foldl f { res: [], cur: [], i: 0 } lss
       merge { res, cur } = unlines <$> if null cur then res else res <> pure cur
   in merge r
