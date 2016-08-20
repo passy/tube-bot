@@ -4,6 +4,7 @@ import Prelude
 import Bot.DB as DB
 import Bot.Strings as Strings
 import Bot.Types as Bot
+import Control.Monad.Eff.Console as EffConsole
 import Control.Monad.Eff.Exception as Ex
 import Data.String as String
 import Network.HTTP.Affjax as Affjax
@@ -20,7 +21,6 @@ import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Array ((:))
 import Data.Either (Either(Left, Right))
-import Data.Foldable (foldl)
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
@@ -192,6 +192,7 @@ listen config = void <<< launchAff $ do
     -- TODO: Exit here if there's no info.
     routeInfo <- DB.findRouteByName $ extractName disruption
     for recipients \user -> do
+      unsafeTrace $ "Found user: " <> show user
       let txt = "Oh noes, a new disruption on the "
              <> (extractRoute <<< extractName $ disruption)
              <> " line."
@@ -204,6 +205,10 @@ listen config = void <<< launchAff $ do
   where
     extractName (Bot.LineStatusRow { name }) = name
     extractRoute (Bot.RouteName name) = name
+
+    printException e = do
+      EffConsole.log (Ex.message e)
+      pure unit
 
     extractInfoImageUrl info =
       case info of
