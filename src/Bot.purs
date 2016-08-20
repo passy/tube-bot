@@ -20,6 +20,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Data.Argonaut (class DecodeJson)
 import Data.Array ((:))
 import Data.Either (either, Either(Left, Right))
 import Data.HTTP.Method (Method(POST))
@@ -28,6 +29,7 @@ import Data.Maybe (Maybe(Just, Nothing))
 import Data.Traversable (for)
 import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (AJAX)
+import Network.HTTP.Affjax.Request (class Requestable)
 import Text.Parsing.StringParser (Parser, runParser, try)
 
 listToString :: List Char -> String
@@ -155,31 +157,34 @@ evalCommand sender = go
 
       pure $ Bot.TmplPlainText { text: header <> "\n" <> String.joinWith "\n" routes }
 
-callSendAPI
-  :: forall e.
-     Bot.MessengerConfig
-  -> Bot.MessageResponse
-  -> Aff (ajax :: AJAX | e) Bot.SendMessageResponse
-callSendAPI (Bot.MessengerConfig config) msg =
-  let url = "https://graph.facebook.com/v2.7/me/messages"
+callFBAPI
+  :: forall req rsp eff.
+   ( DecodeJson rsp , Requestable req )
+  => String
+  -> Bot.MessengerConfig
+  -> req
+  -> Aff ( ajax :: AJAX | eff ) rsp
+callFBAPI endpoint (Bot.MessengerConfig config) msg =
+  let url = "https://graph.facebook.com/v2.7/me/" <> endpoint
       query = "?access_token=" <> config.pageAccessToken
       req = Affjax.defaultRequest { method = Left POST
                                   , url = (url <> query)
                                   , content = Just msg }
   in doJsonRequest req
 
+callSendAPI
+  :: forall e.
+     Bot.MessengerConfig
+  -> Bot.MessageResponse
+  -> Aff (ajax :: AJAX | e) Bot.SendMessageResponse
+callSendAPI = callFBAPI "messages"
+
 callThreadSettingsAPI
   :: forall e.
      Bot.MessengerConfig
   -> Bot.ThreadSettingsRequest
   -> Aff (ajax :: AJAX | e) Bot.ThreadSettingsResponse
-callThreadSettingsAPI (Bot.MessengerConfig config) msg =
-  let url = "https://graph.facebook.com/v2.7/me/thread_settings"
-      query = "?access_token=" <> config.pageAccessToken
-      req = Affjax.defaultRequest { method = Left POST
-                                  , url = (url <> query)
-                                  , content = Just msg }
-  in doJsonRequest req
+callThreadSettingsAPI = callFBAPI "thread_settings"
 
 listen
   :: forall e.
