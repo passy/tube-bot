@@ -19,7 +19,6 @@ import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Exception (message)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Array ((:))
 import Data.Either (either, Either(Left, Right))
@@ -205,7 +204,7 @@ listen config = void <<< launchAff $ do
 
       for (renderTemplate user tmpl) $ \rendered -> do
         e <- attempt $ callSendAPI config rendered
-        liftEff $ either (EffConsole.log <<< message) (const $ pure unit) e
+        liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
 
   where
     extractName (Bot.LineStatusRow { name }) = name
