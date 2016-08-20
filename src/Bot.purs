@@ -211,10 +211,6 @@ listen config = void <<< launchAff $ do
     extractName (Bot.LineStatusRow { name }) = name
     extractRoute (Bot.RouteName name) = name
 
-    printException e = do
-      EffConsole.log (Ex.message e)
-      pure unit
-
     extractInfoImageUrl info =
       case info of
         Just (Bot.RouteInfoRow r) -> r.image_url
