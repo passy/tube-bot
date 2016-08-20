@@ -8,7 +8,7 @@ import Control.Error.Util (note)
 import Control.Monad.Eff.Exception (Error)
 import Data.Argonaut ((~>), (:=), (.?))
 import Data.Generic (class Generic, gShow, gEq)
-import Data.Maybe (Maybe())
+import Data.Maybe (Maybe(Just, Nothing))
 import Network.HTTP.Affjax (URL)
 import Network.HTTP.Affjax.Request (toRequest, class Requestable)
 import Text.Parsing.StringParser (ParseError)
@@ -153,8 +153,12 @@ instance encodeJsonElement :: J.EncodeJson Element where
    ~> "subtitle" := el.subtitle
    ~> "image_url" := el.imageUrl
    ~> "item_url" := el.itemUrl
-   ~> "buttons" := el.buttons
+   ~> "buttons" := nullEmpty el.buttons
    ~> J.jsonEmptyObject
+   where
+    nullEmpty :: forall a. Array a -> Maybe (Array a)
+    nullEmpty [] = Nothing
+    nullEmpty a  = Just a
 
 data Button
   = BtnWeb { title :: String
