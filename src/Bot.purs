@@ -13,14 +13,16 @@ import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (doJsonRequest)
 import Bot.DB (RETHINKDB)
 import Control.Alt ((<|>))
-import Control.Monad.Aff (forkAff, Aff, launchAff)
+import Control.Monad.Aff (Aff, launchAff, attempt, forkAff)
 import Control.Monad.Aff.Console (log, logShow)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE)
+import Control.Monad.Eff.Exception (message)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Array ((:))
-import Data.Either (Either(Left, Right))
+import Data.Either (either, Either(Left, Right))
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
@@ -183,7 +185,7 @@ callThreadSettingsAPI (Bot.MessengerConfig config) msg =
 listen
   :: forall e.
      Bot.MessengerConfig
-  -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, err :: Ex.EXCEPTION | e) Unit
+  -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, err :: Ex.EXCEPTION, console :: CONSOLE | e) Unit
 listen config = void <<< launchAff $ do
   disruption <- DB.disruptionChanges
   unsafeTrace $ "Obtained new disruption " <> unsafeStringify disruption
@@ -200,7 +202,10 @@ listen config = void <<< launchAff $ do
                 { title: extractRoute <<< extractName $ disruption
                 , subtitle: pure txt
                 , imageUrl: extractInfoImageUrl routeInfo }
-      for (renderTemplate user tmpl) $ callSendAPI config
+
+      for (renderTemplate user tmpl) $ \rendered -> do
+        e <- attempt $ callSendAPI config rendered
+        liftEff $ either (EffConsole.log <<< message) (const $ pure unit) e
 
   where
     extractName (Bot.LineStatusRow { name }) = name
