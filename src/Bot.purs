@@ -232,15 +232,9 @@ listen config = void <<< launchAff $ do
              , rethinkdb :: DB.RETHINKDB
              , console :: CONSOLE | eff ) Unit
     sendServiceDisruptionNote user routeInfo disruption@(Bot.LineStatusRow { name, description }) = do
-      let txt = "Oh noes, a new disruption on the "
-               <> extractRoute name
-               <> " line. It's having "
-               <> description
-               <> "."
-
       let tmpl = Bot.TmplGenericImage
                 { title: extractRoute name
-                , subtitle: pure txt
+                , subtitle: pure description
                 , imageUrl: extractInfoImageUrl routeInfo }
 
       for_ (renderTemplate user tmpl) $ \rendered -> do
