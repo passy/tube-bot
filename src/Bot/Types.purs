@@ -27,6 +27,21 @@ newtype Disruption = Disruption
   , summary :: String
   , stops :: Array String }
 
+data DisruptionLevel =
+  GoodService | MinorDelays | SevereDelays | PartSuspended | UnknownLevel Int
+
+intToDisruptionLevel :: Int -> DisruptionLevel
+intToDisruptionLevel i = case i of
+  0 -> GoodService
+  1 -> MinorDelays
+  2 -> SevereDelays
+  3 -> PartSuspended
+  otherwise -> UnknownLevel i
+
+getLevelFromStatusRow :: LineStatusRow -> DisruptionLevel
+getLevelFromStatusRow (LineStatusRow r) =
+  intToDisruptionLevel r.level
+
 newtype RouteInfoRow = RouteInfoRow
   { name :: RouteName
   , image_url :: URL }

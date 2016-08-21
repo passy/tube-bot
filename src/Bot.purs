@@ -11,7 +11,6 @@ import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (doJsonRequest)
-import Bot.DB (RETHINKDB)
 import Control.Alt ((<|>))
 import Control.Monad.Aff (Aff, launchAff, attempt, forkAff)
 import Control.Monad.Aff.Console (log, logShow)
@@ -67,10 +66,10 @@ handleReceivedMessage
   :: forall e.
      Bot.MessengerConfig
   -> Bot.MessagingEvent
-  -> Eff (rethinkdb :: RETHINKDB, ajax :: AJAX, console :: CONSOLE | e) Unit
+  -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, console :: CONSOLE | e) Unit
 handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: text }, sender }) = do
   let res = runParser commandParser text
-      tmpl :: forall e'. Aff (rethinkdb :: RETHINKDB | e') Bot.Template
+      tmpl :: forall e'. Aff (rethinkdb :: DB.RETHINKDB | e') Bot.Template
       tmpl = case res of
               Left err -> pure $ Bot.TmplParseError { err }
               Right cmd -> evalCommand sender cmd
@@ -123,7 +122,7 @@ evalCommand
   :: forall e.
      Bot.User
   -> Bot.Command
-  -> Aff (rethinkdb :: RETHINKDB | e) Bot.Template
+  -> Aff (rethinkdb :: DB.RETHINKDB | e) Bot.Template
 evalCommand sender = go
   where
     extractRouteName (Bot.RouteInfoRow { name: Bot.RouteName name }) = name
@@ -199,6 +198,22 @@ listen config = void <<< launchAff $ do
     routeInfo <- DB.findRouteByName $ extractName disruption
     for recipients \user -> do
       unsafeTrace $ "Found user: " <> show user
+      case Bot.getLevelFromStatusRow disruption of
+        Bot.GoodService -> forkAff $ sendServiceRecoveryNote user routeInfo disruption
+        otherwise -> forkAff $ sendServiceDisruptionNote user routeInfo disruption
+  where
+    extractName (Bot.LineStatusRow { name }) = name
+    extractRoute (Bot.RouteName name) = name
+
+    extractInfoImageUrl info =
+      case info of
+        Just (Bot.RouteInfoRow r) -> r.image_url
+        Nothing -> "https://cldup.com/WeSoPrcj4I.svg"
+
+    sendServiceRecoveryNote user routeInfo disruption =
+      pure unit
+
+    sendServiceDisruptionNote user routeInfo disruption = do
       let txt = "Oh noes, a new disruption on the "
              <> (extractRoute <<< extractName $ disruption)
              <> " line."
@@ -210,15 +225,6 @@ listen config = void <<< launchAff $ do
       for (renderTemplate user tmpl) $ \rendered -> do
         e <- attempt $ callSendAPI config rendered
         liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
-
-  where
-    extractName (Bot.LineStatusRow { name }) = name
-    extractRoute (Bot.RouteName name) = name
-
-    extractInfoImageUrl info =
-      case info of
-        Just (Bot.RouteInfoRow r) -> r.image_url
-        Nothing -> "https://cldup.com/WeSoPrcj4I.svg"
 
 setupThreadSettings
   :: forall e.

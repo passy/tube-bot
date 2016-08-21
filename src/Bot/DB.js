@@ -10,7 +10,6 @@ exports._disruptionChanges = function (eb) {
     return function (cb) {
         return function () {
             r.table('disruptions')
-                .filter(r.row('level').ge(1))
                 .changes()
                 .run(function (err, cursor) {
                     if (err) {
