@@ -210,8 +210,15 @@ listen config = void <<< launchAff $ do
         Just (Bot.RouteInfoRow r) -> r.image_url
         Nothing -> "https://cldup.com/WeSoPrcj4I.svg"
 
-    sendServiceRecoveryNote user routeInfo disruption =
-      pure unit
+    sendServiceRecoveryNote user routeInfo disruption = do
+      let txt = ( (extractRoute <<< extractName $ disruption)
+               <> ": The line has recovered and is operating again "
+               <> "with a good service on the entire line. \\o/" )
+      let tmpl = Bot.TmplPlainText { text: txt }
+
+      for (renderTemplate user tmpl) $ \rendered -> do
+        e <- attempt $ callSendAPI config rendered
+        liftEff $ either (EffConsole.log <<< message) (const $ pure unit) e
 
     sendServiceDisruptionNote user routeInfo disruption = do
       let txt = "Oh noes, a new disruption on the "
