@@ -1,6 +1,6 @@
 {
   "name": "disruption-fb-bot",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "TfL Disruption FB Messenger Bot",
   "main": "index.js",
   "dependencies": {
