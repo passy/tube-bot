@@ -22,6 +22,7 @@ import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Argonaut (class DecodeJson)
 import Data.Array ((:))
 import Data.Either (either, Either(Left, Right))
+import Data.Foldable (for_)
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
@@ -204,7 +205,9 @@ listen config = void <<< launchAff $ do
   where
     extractName (Bot.LineStatusRow { name }) = name
     extractRoute (Bot.RouteName name) = name
+    extractDescription (Bot.LineStatusRow name) = name
 
+    extractInfoImageUrl :: Maybe Bot.RouteInfoRow -> String
     extractInfoImageUrl info =
       case info of
         Just (Bot.RouteInfoRow r) -> r.image_url
@@ -218,18 +221,29 @@ listen config = void <<< launchAff $ do
 
       for (renderTemplate user tmpl) $ \rendered -> do
         e <- attempt $ callSendAPI config rendered
-        liftEff $ either (EffConsole.log <<< message) (const $ pure unit) e
+        liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
 
-    sendServiceDisruptionNote user routeInfo disruption = do
+    sendServiceDisruptionNote
+      :: forall eff.
+         Bot.User
+      -> Maybe Bot.RouteInfoRow
+      -> Bot.LineStatusRow
+      -> Aff ( ajax :: AJAX
+             , rethinkdb :: DB.RETHINKDB
+             , console :: CONSOLE | eff ) Unit
+    sendServiceDisruptionNote user routeInfo disruption@(Bot.LineStatusRow { name, description }) = do
       let txt = "Oh noes, a new disruption on the "
-             <> (extractRoute <<< extractName $ disruption)
-             <> " line."
+               <> extractRoute name
+               <> " line. It's having "
+               <> description
+               <> "."
+
       let tmpl = Bot.TmplGenericImage
-                { title: extractRoute <<< extractName $ disruption
+                { title: extractRoute name
                 , subtitle: pure txt
                 , imageUrl: extractInfoImageUrl routeInfo }
 
-      for (renderTemplate user tmpl) $ \rendered -> do
+      for_ (renderTemplate user tmpl) $ \rendered -> do
         e <- attempt $ callSendAPI config rendered
         liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
 
