@@ -63,13 +63,16 @@ commandParser =
     <|> channelCommandParser "unsubscribe" Bot.CmdUnsubscribe
     <|> listLinesParser Bot.CmdListLines
 
+sanitizeInput :: String -> String
+sanitizeInput = String.trim >>> String.toLower
+
 handleReceivedMessage
   :: forall e.
      Bot.MessengerConfig
   -> Bot.MessagingEvent
   -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, console :: CONSOLE | e) Unit
 handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: text }, sender }) = do
-  let res = runParser commandParser text
+  let res = runParser commandParser $ sanitizeInput text
       tmpl :: forall e'. Aff (rethinkdb :: DB.RETHINKDB | e') Bot.Template
       tmpl = case res of
               Left err -> pure $ Bot.TmplParseError { err }
