@@ -28,7 +28,7 @@ import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
 import Data.Traversable (for)
 import Global.Unsafe (unsafeStringify)
-import Network.HTTP.Affjax (AJAX)
+import Network.HTTP.Affjax (URL, AJAX)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Text.Parsing.StringParser (Parser, runParser, try)
 
@@ -37,6 +37,10 @@ listToString = String.fromCharArray <<< toUnfoldable
 
 maxMessageLength :: Int
 maxMessageLength = 320
+
+roundelUrlFromRoute :: Bot.RouteInfoRow -> URL
+roundelUrlFromRoute (Bot.RouteInfoRow { color: Bot.HexColor c }) =
+  "https://tube-roundel.rdrei.net/roundel/no-text/" <> String.drop 1 c <> "/image.png"
 
 channelCommandParser
   :: String
@@ -207,13 +211,13 @@ listen config = void <<< launchAff $ do
         otherwise -> forkAff $ sendServiceDisruptionNote user routeInfo disruption
   where
     extractName (Bot.LineStatusRow { name }) = name
-    extractRoute (Bot.RouteName name) = name
+    extractRoute (Bot.RouteName name) = String.toLower name
     extractDescription (Bot.LineStatusRow name) = name
 
-    extractInfoImageUrl :: Maybe Bot.RouteInfoRow -> String
+    extractInfoImageUrl :: Maybe Bot.RouteInfoRow -> URL
     extractInfoImageUrl info =
       case info of
-        Just (Bot.RouteInfoRow r) -> r.image_url
+        Just r -> roundelUrlFromRoute r
         Nothing -> "https://cldup.com/WeSoPrcj4I.svg"
 
     sendServiceRecoveryNote user routeInfo disruption = do
