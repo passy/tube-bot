@@ -133,7 +133,7 @@ evalCommand
   -> Aff (rethinkdb :: DB.RETHINKDB | e) Bot.Template
 evalCommand sender = go
   where
-    extractRouteName (Bot.RouteInfoRow { name: Bot.RouteName name }) = name
+    extractRouteName (Bot.RouteInfoRow { display: name }) = name
 
     go (Bot.CmdSubscribe channel) = do
       routeInfo <- DB.findRouteByName channel.route
@@ -158,7 +158,7 @@ evalCommand sender = go
                                   <> " line." }
 
     go Bot.CmdListLines = do
-      let extract (Bot.RouteInfoRow { name: Bot.RouteName name }) = "- " <> name
+      let extract (Bot.RouteInfoRow { display: name }) = "- " <> name
       routes <- map extract <$> DB.getAllRoutes
       let header = "Here's a list of routes you can currently subscribe to:"
 
