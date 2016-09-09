@@ -25,10 +25,10 @@ import Data.Either (either, Either(Left, Right))
 import Data.Foldable (for_)
 import Data.HTTP.Method (Method(POST))
 import Data.List (List, toUnfoldable)
-import Data.Maybe (Maybe(Just, Nothing))
+import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 import Data.Traversable (for)
 import Global.Unsafe (unsafeStringify)
-import Network.HTTP.Affjax (AJAX)
+import Network.HTTP.Affjax (URL, AJAX)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Text.Parsing.StringParser (Parser, runParser, try)
 
@@ -37,6 +37,10 @@ listToString = String.fromCharArray <<< toUnfoldable
 
 maxMessageLength :: Int
 maxMessageLength = 320
+
+roundelUrlFromRoute :: Bot.RouteInfoRow -> URL
+roundelUrlFromRoute (Bot.RouteInfoRow { color: Bot.HexColor c }) =
+  "https://tube-roundel.rdrei.net/roundel/no-text/" <> String.drop 1 c <> "/image.png"
 
 channelCommandParser
   :: String
@@ -129,7 +133,7 @@ evalCommand
   -> Aff (rethinkdb :: DB.RETHINKDB | e) Bot.Template
 evalCommand sender = go
   where
-    extractRouteName (Bot.RouteInfoRow { name: Bot.RouteName name }) = name
+    extractRouteName (Bot.RouteInfoRow { display: name }) = name
 
     go (Bot.CmdSubscribe channel) = do
       routeInfo <- DB.findRouteByName channel.route
@@ -154,7 +158,7 @@ evalCommand sender = go
                                   <> " line." }
 
     go Bot.CmdListLines = do
-      let extract (Bot.RouteInfoRow { name: Bot.RouteName name }) = "- " <> name
+      let extract (Bot.RouteInfoRow { display: name }) = "- " <> name
       routes <- map extract <$> DB.getAllRoutes
       let header = "Here's a list of routes you can currently subscribe to:"
 
@@ -197,32 +201,44 @@ listen config = void <<< launchAff $ do
   disruption <- DB.disruptionChanges
   unsafeTrace $ "Obtained new disruption " <> unsafeStringify disruption
   forkAff $ do
-    recipients <- DB.findRecipientsForDisruption $ extractName disruption
+    recipients <- DB.findRecipientsForDisruption $ extractDisruptionName disruption
     -- TODO: Exit here if there's no info.
-    routeInfo <- DB.findRouteByName $ extractName disruption
+    routeInfo <- DB.findRouteByName $ extractDisruptionName disruption
     for recipients \user -> do
       unsafeTrace $ "Found user: " <> show user
       case Bot.getLevelFromStatusRow disruption of
         Bot.GoodService -> forkAff $ sendServiceRecoveryNote user routeInfo disruption
         otherwise -> forkAff $ sendServiceDisruptionNote user routeInfo disruption
   where
-    extractName (Bot.LineStatusRow { name }) = name
-    extractRoute (Bot.RouteName name) = name
-    extractDescription (Bot.LineStatusRow name) = name
+    extractRouteName :: Bot.RouteInfoRow -> String
+    extractRouteName (Bot.RouteInfoRow { display }) = display
 
-    extractInfoImageUrl :: Maybe Bot.RouteInfoRow -> String
+    extractDisruptionName :: Bot.LineStatusRow -> Bot.RouteName
+    extractDisruptionName (Bot.LineStatusRow { name }) = name
+
+    extractInfoImageUrl :: Maybe Bot.RouteInfoRow -> URL
     extractInfoImageUrl info =
       case info of
-        Just (Bot.RouteInfoRow r) -> r.image_url
+        Just r -> roundelUrlFromRoute r
         Nothing -> "https://cldup.com/WeSoPrcj4I.svg"
 
+    -- TODO: Shouldn't accept a Maybe for the route info.
+    sendServiceRecoveryNote
+      :: forall eff.
+         Bot.User
+      -> Maybe Bot.RouteInfoRow
+      -> Bot.LineStatusRow
+      -> Aff ( ajax :: AJAX
+             , rethinkdb :: DB.RETHINKDB
+             , console :: CONSOLE | eff) Unit
     sendServiceRecoveryNote user routeInfo disruption = do
-      let txt = ( (extractRoute <<< extractName $ disruption)
+      let title = fromMaybe "Unknown Line" $ extractRouteName <$> routeInfo
+      let txt = ( title
                <> ": The line has recovered and is operating again "
                <> "with a good service on the entire line. \\o/" )
       let tmpl = Bot.TmplPlainText { text: txt }
 
-      for (renderTemplate user tmpl) $ \rendered -> do
+      for_ (renderTemplate user tmpl) $ \rendered -> do
         e <- attempt $ callSendAPI config rendered
         liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
 
@@ -234,9 +250,10 @@ listen config = void <<< launchAff $ do
       -> Aff ( ajax :: AJAX
              , rethinkdb :: DB.RETHINKDB
              , console :: CONSOLE | eff ) Unit
-    sendServiceDisruptionNote user routeInfo disruption@(Bot.LineStatusRow { name, description }) = do
+    sendServiceDisruptionNote user routeInfo disruption@(Bot.LineStatusRow { description }) = do
+      let title = fromMaybe "Unknown Line" $ extractRouteName <$> routeInfo
       let tmpl = Bot.TmplGenericImage
-                { title: extractRoute name
+                { title: title
                 , subtitle: pure description
                 , imageUrl: extractInfoImageUrl routeInfo }
 

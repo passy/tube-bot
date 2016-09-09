@@ -44,7 +44,8 @@ getLevelFromStatusRow (LineStatusRow r) =
 
 newtype RouteInfoRow = RouteInfoRow
   { name :: RouteName
-  , image_url :: URL }
+  , display :: String
+  , color :: HexColor }
 
 derive instance genericRouteInfoRow :: Generic RouteInfoRow
 
@@ -57,8 +58,9 @@ instance encodeJsonUser :: J.EncodeJson User where
   encodeJson (User { id }) =
     "id" := id ~> J.jsonEmptyObject
 
--- | The unique name for a line without the "Line" suffix, e.g. "District" or
--- "Hammersmith & City". Only for type-safty reasons.
+-- | The unique name for a line without the "line" suffix, e.g. "district" or
+-- "hammersmith & city". Used as key and always lower-case.
+-- Only for type-safty reasons.
 newtype RouteName = RouteName String
 
 derive instance genericRouteName :: Generic RouteName
@@ -67,6 +69,16 @@ instance showRouteName :: Show RouteName where
   show = gShow
 
 instance eqRouteName :: Eq RouteName where
+  eq = gEq
+
+newtype HexColor = HexColor String
+
+derive instance genericHexColor :: Generic HexColor
+
+instance showHexColor :: Show HexColor where
+  show = gShow
+
+instance eqHexColor :: Eq HexColor where
   eq = gEq
 
 newtype MessengerConfig = MessengerConfig { pageAccessToken :: String }
