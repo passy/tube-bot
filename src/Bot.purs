@@ -214,7 +214,8 @@ listen config = void <<< launchAff $ do
     extractRouteName (Bot.RouteInfoRow { display }) = display
 
     extractDisruptionName :: Bot.LineStatusRow -> Bot.RouteName
-    extractDisruptionName (Bot.LineStatusRow { name }) = name
+    extractDisruptionName (Bot.LineStatusRow { name }) =
+      Bot.normalizeRouteName name
 
     extractInfoImageUrl :: Maybe Bot.RouteInfoRow -> URL
     extractInfoImageUrl info =

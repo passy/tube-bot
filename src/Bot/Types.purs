@@ -12,6 +12,7 @@ import Data.Maybe (Maybe(Just, Nothing))
 import Network.HTTP.Affjax (URL)
 import Network.HTTP.Affjax.Request (toRequest, class Requestable)
 import Text.Parsing.StringParser (ParseError)
+import Data.String as S
 
 type SequenceNumber = Int
 type MessageId = String
@@ -62,6 +63,9 @@ instance encodeJsonUser :: J.EncodeJson User where
 -- "hammersmith & city". Used as key and always lower-case.
 -- Only for type-safty reasons.
 newtype RouteName = RouteName String
+
+normalizeRouteName :: RouteName -> RouteName
+normalizeRouteName (RouteName n) = RouteName $ S.toLower n
 
 derive instance genericRouteName :: Generic RouteName
 
