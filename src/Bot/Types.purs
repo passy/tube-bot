@@ -151,7 +151,7 @@ instance encodeJsonMessageResponse :: J.EncodeJson MessageResponse where
 
   encodeJson (RspTypingIndicator { indicator, recipient })
     = "recipient" := recipient
-   ~> "send_action" := indicator
+   ~> "sender_action" := indicator
    ~> J.jsonEmptyObject
 
 instance requestableMessageResponse :: Requestable MessageResponse where

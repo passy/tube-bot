@@ -19,7 +19,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import Data.Argonaut (class DecodeJson)
+import Data.Argonaut (encodeJson, class DecodeJson)
 import Data.Array ((:))
 import Data.Either (either, Either(Left, Right))
 import Data.Foldable (for_)
@@ -85,7 +85,10 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
   -- The error handling here is dreadful. Help welcome!
   result <- Ex.try $ void $ launchAff $ do
     rsps <- renderTemplate sender <$> tmpl
+    -- TODO: This should be something like withIndicator do -> bla
+    callSendAPI config $ Bot.RspTypingIndicator { indicator: Bot.TypingOn, recipient: sender }
     for rsps $ callSendAPI config
+    callSendAPI config $ Bot.RspTypingIndicator { indicator: Bot.TypingOff, recipient: sender }
 
   case result of
     Right _ -> pure unit
