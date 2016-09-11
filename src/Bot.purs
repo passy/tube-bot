@@ -39,7 +39,7 @@ maxMessageLength :: Int
 maxMessageLength = 320
 
 typingDelayMillis :: Int
-typingDelayMillis = 500
+typingDelayMillis = 200
 
 roundelUrlFromRoute :: Bot.RouteInfoRow -> URL
 roundelUrlFromRoute (Bot.RouteInfoRow { color: Bot.HexColor c }) =
@@ -80,11 +80,11 @@ withTypingIndicator
   -> Aff ( ajax :: AJAX
          | eff ) a
   -> Aff ( ajax :: AJAX
-         | eff ) Bot.SendMessageResponse
+         | eff ) a
 withTypingIndicator sender config fn = do
     callSendAPI config $ indicator Bot.TypingOn
+    later' typingDelayMillis $ pure unit
     fn
-    callSendAPI config $ indicator Bot.TypingOff
     where
       indicator t = Bot.RspTypingIndicator { indicator: t, recipient: sender }
 
@@ -100,12 +100,9 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
               Left err -> pure $ Bot.TmplParseError { err }
               Right cmd -> evalCommand sender cmd
 
-  -- The error handling here is dreadful. Help welcome!
   result <- Ex.try $ launchAff $ do
     rsps <- renderTemplate sender <$> tmpl
-    withTypingIndicator sender config <<< for rsps $ \rsp -> do
-      later' typingDelayMillis $ pure unit
-      callSendAPI config rsp
+    for rsps $ withTypingIndicator sender config <<< callSendAPI config
 
   case result of
     Right _ -> pure unit
