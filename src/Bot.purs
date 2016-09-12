@@ -85,7 +85,7 @@ sanitizeInput = String.trim >>> String.toLower
 
 withTypingIndicator
   :: forall eff a.
-     Aff ( ajax :: AJAX | eff ) a
+     a
   -> SendingCtx (Aff ( ajax :: AJAX | eff )) a
 withTypingIndicator fn = do
     recipient <-  _.recipient <$> Reader.ask
@@ -94,7 +94,7 @@ withTypingIndicator fn = do
     liftAff $ do
       callSendAPI config $ indicator Bot.TypingOn
       later' typingDelayMillis $ pure unit
-      fn
+      pure fn
 
 handleReceivedMessage
   :: forall e.
@@ -110,7 +110,7 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
 
   result <- Ex.try $ launchAff $ do
     rsps <- renderTemplate sender <$> tmpl
-    for rsps \rsp -> runSendingCtx { recipient: sender, config: config } <<< withTypingIndicator $ callSendAPI config rsp
+    for rsps $ runSendingCtx { recipient: sender, config: config } <<< withTypingIndicator <<< callSendAPI'
 
   case result of
     Right _ -> pure unit
@@ -191,7 +191,7 @@ evalCommand sender = go
 
 callFBAPI
   :: forall req rsp eff.
-   ( DecodeJson rsp , Requestable req )
+   ( DecodeJson rsp, Requestable req )
   => String
   -> Bot.MessengerConfig
   -> req
@@ -210,6 +210,14 @@ callSendAPI
   -> Bot.MessageResponse
   -> Aff (ajax :: AJAX | e) Bot.SendMessageResponse
 callSendAPI = callFBAPI "messages"
+
+callSendAPI'
+  :: forall e.
+     Bot.MessageResponse
+  -> SendingCtx (Aff (ajax :: AJAX | e)) Bot.SendMessageResponse
+callSendAPI' rsp = do
+  config <- _.config <$> Reader.ask
+  liftAff $ callFBAPI "messages" config rsp
 
 callThreadSettingsAPI
   :: forall e.
