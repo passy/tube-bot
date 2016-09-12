@@ -110,7 +110,7 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
 
   result <- Ex.try $ launchAff $ do
     rsps <- renderTemplate sender <$> tmpl
-    for rsps \rsp -> runSendingCtx { recipient: sender, config: config } (withTypingIndicator (callSendAPI config rsp))
+    for rsps \rsp -> runSendingCtx { recipient: sender, config: config } <<< withTypingIndicator $ callSendAPI config rsp
 
   case result of
     Right _ -> pure unit
