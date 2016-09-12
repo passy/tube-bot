@@ -70,6 +70,21 @@ commandParser =
 sanitizeInput :: String -> String
 sanitizeInput = String.trim >>> String.toLower
 
+withTypingIndicator
+  :: forall eff a.
+     Bot.User
+  -> Bot.MessengerConfig
+  -> Aff ( ajax :: AJAX
+         | eff ) a
+  -> Aff ( ajax :: AJAX
+         | eff ) Bot.SendMessageResponse
+withTypingIndicator sender config fn = do
+    callSendAPI config $ indicator Bot.TypingOn
+    fn
+    callSendAPI config $ indicator Bot.TypingOff
+    where
+      indicator t = Bot.RspTypingIndicator { indicator: t, recipient: sender }
+
 handleReceivedMessage
   :: forall e.
      Bot.MessengerConfig
@@ -85,7 +100,7 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
   -- The error handling here is dreadful. Help welcome!
   result <- Ex.try $ void $ launchAff $ do
     rsps <- renderTemplate sender <$> tmpl
-    for rsps $ callSendAPI config
+    withTypingIndicator sender config $ for rsps $ callSendAPI config
 
   case result of
     Right _ -> pure unit

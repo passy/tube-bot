@@ -2,17 +2,17 @@ module Bot.Types where
 
 import Prelude
 import Data.Argonaut as J
+import Data.String as S
 import Bot.JsonHelper ((.??))
 import Control.Alt ((<|>))
 import Control.Error.Util (note)
 import Control.Monad.Eff.Exception (Error)
 import Data.Argonaut ((~>), (:=), (.?))
-import Data.Generic (class Generic, gShow, gEq)
+import Data.Generic (class Generic, gEq, gShow)
 import Data.Maybe (Maybe(Just, Nothing))
 import Network.HTTP.Affjax (URL)
 import Network.HTTP.Affjax.Request (toRequest, class Requestable)
 import Text.Parsing.StringParser (ParseError)
-import Data.String as S
 
 type SequenceNumber = Int
 type MessageId = String
@@ -127,6 +127,8 @@ data Template = TmplPlainText { text :: String }
 data MessageResponse = RspText { text :: String, recipient :: User }
                      | RspAttachment { attachment :: Attachment
                                      , recipient :: User }
+                     | RspTypingIndicator { indicator :: TypingIndicator
+                                          , recipient :: User }
 
 derive instance genericMessageResponse :: Generic MessageResponse
 
@@ -142,9 +144,14 @@ instance encodeJsonMessageResponse :: J.EncodeJson MessageResponse where
    ~> "message" := ("text" := text ~> J.jsonEmptyObject)
    ~> J.jsonEmptyObject
 
-  encodeJson (RspAttachment { recipient, attachment })
+  encodeJson (RspAttachment { attachment, recipient })
     = "recipient" := recipient
    ~> "message" := ("attachment" := attachment ~> J.jsonEmptyObject)
+   ~> J.jsonEmptyObject
+
+  encodeJson (RspTypingIndicator { indicator, recipient })
+    = "recipient" := recipient
+   ~> "sender_action" := indicator
    ~> J.jsonEmptyObject
 
 instance requestableMessageResponse :: Requestable MessageResponse where
@@ -223,6 +230,20 @@ instance encodeJsonButton :: J.EncodeJson Button where
    ~> "title" := title
    ~> "payload" := payload
    ~> J.jsonEmptyObject
+
+data TypingIndicator = TypingOn | TypingOff
+
+derive instance genericTypingIndicator :: Generic TypingIndicator
+
+instance showTypingIndicator :: Show TypingIndicator where
+  show = gShow
+
+instance eqTypingIndicator :: Eq TypingIndicator where
+  eq = gEq
+
+instance encodeJsonTypingIndicator :: J.EncodeJson TypingIndicator where
+  encodeJson TypingOn = J.fromString "typing_on"
+  encodeJson TypingOff = J.fromString "typing_off"
 
 data Attachment = AttImage { url :: URL }
                 | AttGenericTemplate { elements :: Array Element }
