@@ -12,7 +12,7 @@ import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (doJsonRequest)
 import Control.Alt ((<|>))
-import Control.Monad.Aff (Aff, launchAff, attempt, forkAff)
+import Control.Monad.Aff (later', Aff, launchAff, attempt, forkAff)
 import Control.Monad.Aff.Console (log, logShow)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
@@ -37,6 +37,9 @@ listToString = String.fromCharArray <<< toUnfoldable
 
 maxMessageLength :: Int
 maxMessageLength = 320
+
+typingDelayMillis :: Int
+typingDelayMillis = 200
 
 roundelUrlFromRoute :: Bot.RouteInfoRow -> URL
 roundelUrlFromRoute (Bot.RouteInfoRow { color: Bot.HexColor c }) =
@@ -77,11 +80,11 @@ withTypingIndicator
   -> Aff ( ajax :: AJAX
          | eff ) a
   -> Aff ( ajax :: AJAX
-         | eff ) Bot.SendMessageResponse
+         | eff ) a
 withTypingIndicator sender config fn = do
     callSendAPI config $ indicator Bot.TypingOn
+    later' typingDelayMillis $ pure unit
     fn
-    callSendAPI config $ indicator Bot.TypingOff
     where
       indicator t = Bot.RspTypingIndicator { indicator: t, recipient: sender }
 
@@ -97,10 +100,9 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
               Left err -> pure $ Bot.TmplParseError { err }
               Right cmd -> evalCommand sender cmd
 
-  -- The error handling here is dreadful. Help welcome!
-  result <- Ex.try $ void $ launchAff $ do
+  result <- Ex.try $ launchAff $ do
     rsps <- renderTemplate sender <$> tmpl
-    withTypingIndicator sender config $ for rsps $ callSendAPI config
+    for rsps $ withTypingIndicator sender config <<< callSendAPI config
 
   case result of
     Right _ -> pure unit
