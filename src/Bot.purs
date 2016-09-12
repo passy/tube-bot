@@ -6,6 +6,7 @@ import Bot.Strings as Strings
 import Bot.Types as Bot
 import Control.Monad.Eff.Console as EffConsole
 import Control.Monad.Eff.Exception as Ex
+import Control.Monad.Reader as Reader
 import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
@@ -13,6 +14,7 @@ import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (doJsonRequest)
 import Control.Alt ((<|>))
 import Control.Monad.Aff (later', Aff, launchAff, attempt, forkAff)
+import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (log, logShow)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
@@ -31,6 +33,14 @@ import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (URL, AJAX)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Text.Parsing.StringParser (Parser, runParser, try)
+
+type SendingEnv = { recipient :: Bot.User
+                  , config :: Bot.MessengerConfig }
+
+type SendingCtx = Reader.ReaderT SendingEnv
+
+runSendingCtx :: forall m a. SendingEnv -> SendingCtx m a -> m a
+runSendingCtx = flip Reader.runReaderT
 
 listToString :: List Char -> String
 listToString = String.fromCharArray <<< toUnfoldable
@@ -75,18 +85,16 @@ sanitizeInput = String.trim >>> String.toLower
 
 withTypingIndicator
   :: forall eff a.
-     Bot.User
-  -> Bot.MessengerConfig
-  -> Aff ( ajax :: AJAX
-         | eff ) a
-  -> Aff ( ajax :: AJAX
-         | eff ) a
-withTypingIndicator sender config fn = do
-    callSendAPI config $ indicator Bot.TypingOn
-    later' typingDelayMillis $ pure unit
-    fn
-    where
-      indicator t = Bot.RspTypingIndicator { indicator: t, recipient: sender }
+     Aff ( ajax :: AJAX | eff ) a
+  -> SendingCtx (Aff ( ajax :: AJAX | eff )) a
+withTypingIndicator fn = do
+    recipient <-  _.recipient <$> Reader.ask
+    config <-  _.config <$> Reader.ask
+    let indicator t = Bot.RspTypingIndicator { indicator: t, recipient: recipient }
+    liftAff $ do
+      callSendAPI config $ indicator Bot.TypingOn
+      later' typingDelayMillis $ pure unit
+      fn
 
 handleReceivedMessage
   :: forall e.
@@ -102,7 +110,7 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
 
   result <- Ex.try $ launchAff $ do
     rsps <- renderTemplate sender <$> tmpl
-    for rsps $ withTypingIndicator sender config <<< callSendAPI config
+    for rsps \rsp -> runSendingCtx { recipient: sender, config: config } (withTypingIndicator (callSendAPI config rsp))
 
   case result of
     Right _ -> pure unit
