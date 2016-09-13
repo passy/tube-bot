@@ -88,13 +88,13 @@ withTypingIndicator
      a
   -> SendingCtx (Aff ( ajax :: AJAX | eff )) a
 withTypingIndicator fn = do
-    recipient <-  _.recipient <$> Reader.ask
-    config <-  _.config <$> Reader.ask
+    recipient <- _.recipient <$> Reader.ask
     let indicator t = Bot.RspTypingIndicator { indicator: t, recipient: recipient }
+    _ <- callSendAPI' $ indicator Bot.TypingOn
     liftAff $ do
-      callSendAPI config $ indicator Bot.TypingOn
       later' typingDelayMillis $ pure unit
-      pure fn
+      -- The compiler needs a little help here.
+      pure fn :: (Aff ( ajax :: AJAX| eff )) a
 
 handleReceivedMessage
   :: forall e.
