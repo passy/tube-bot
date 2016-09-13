@@ -21,11 +21,13 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Control.Monad.Trans (lift)
 import Data.Argonaut (class DecodeJson)
 import Data.Array ((:))
 import Data.Either (either, Either(Left, Right))
 import Data.Foldable (for_)
 import Data.HTTP.Method (Method(POST))
+import Data.Lazy (defer, force, Lazy)
 import Data.List (List, toUnfoldable)
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 import Data.Traversable (for)
@@ -85,32 +87,34 @@ sanitizeInput = String.trim >>> String.toLower
 
 withTypingIndicator
   :: forall eff a.
-     a
+     Lazy (Aff ( ajax :: AJAX | eff ) a)
   -> SendingCtx (Aff ( ajax :: AJAX | eff )) a
 withTypingIndicator fn = do
-    recipient <- _.recipient <$> Reader.ask
+    recipient :: Bot.User <- _.recipient <$> Reader.ask
     let indicator t = Bot.RspTypingIndicator { indicator: t, recipient: recipient }
     _ <- callSendAPI' $ indicator Bot.TypingOn
-    liftAff $ do
-      later' typingDelayMillis $ pure unit
-      -- The compiler needs a little help here.
-      pure fn :: (Aff ( ajax :: AJAX| eff )) a
+    lift $ later' typingDelayMillis $ pure unit
+    liftAff $ force fn
 
 handleReceivedMessage
-  :: forall e.
+  :: forall eff.
      Bot.MessengerConfig
   -> Bot.MessagingEvent
-  -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, console :: CONSOLE | e) Unit
+  -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, console :: CONSOLE | eff) Unit
 handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: text }, sender }) = do
   let res = runParser commandParser $ sanitizeInput text
-      tmpl :: forall e'. Aff (rethinkdb :: DB.RETHINKDB | e') Bot.Template
+      tmpl :: forall eff'. Aff (rethinkdb :: DB.RETHINKDB | eff') Bot.Template
       tmpl = case res of
               Left err -> pure $ Bot.TmplParseError { err }
               Right cmd -> evalCommand sender cmd
 
-  result <- Ex.try $ launchAff $ do
+  result <- Ex.try <<< launchAff $ do
     rsps <- renderTemplate sender <$> tmpl
-    for rsps $ runSendingCtx { recipient: sender, config: config } <<< withTypingIndicator <<< callSendAPI'
+    for rsps \rsp ->
+      runSendingCtx { recipient: sender, config: config } do
+        context <- Reader.ask
+        -- TODO: Figure out how to avoid running the context here again.
+        withTypingIndicator $ defer (\_ -> runSendingCtx context $ callSendAPI' rsp)
 
   case result of
     Right _ -> pure unit
