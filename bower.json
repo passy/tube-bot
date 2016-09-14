@@ -1,5 +1,5 @@
 {
-  "name": "disruption-fb-bot",
+  "name": "tube-bot",
   "description": "TfL Disruption FB Messenger Bot",
   "main": "src/Bot.purs",
   "authors": [

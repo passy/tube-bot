@@ -1,5 +1,5 @@
 {
-  "name": "disruption-fb-bot",
+  "name": "tube-bot",
   "version": "0.1.2",
   "description": "TfL Disruption FB Messenger Bot",
   "main": "index.js",
@@ -28,7 +28,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/passy/disruption-fb-bot.git"
+    "url": "git+https://github.com/passy/tube-bot.git"
   },
   "keywords": [
     "tfl",
@@ -37,7 +37,7 @@
   "author": "Pascal Hartig <i@passy.me>",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/passy/disruption-fb-bot/issues"
+    "url": "https://github.com/passy/tube-bot/issues"
   },
   "xo": {
     "space": 4,
@@ -46,5 +46,5 @@
       "no-negated-condition": 0
     }
   },
-  "homepage": "https://github.com/passy/disruption-fb-bot#readme"
+  "homepage": "https://github.com/passy/tube-bot#readme"
 }
