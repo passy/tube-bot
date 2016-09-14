@@ -6,6 +6,7 @@ import Bot.Strings as Strings
 import Bot.Types as Bot
 import Control.Monad.Eff.Console as EffConsole
 import Control.Monad.Eff.Exception as Ex
+import Control.Monad.Reader as Reader
 import Data.String as String
 import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
@@ -13,17 +14,20 @@ import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (doJsonRequest)
 import Control.Alt ((<|>))
 import Control.Monad.Aff (later', Aff, launchAff, attempt, forkAff)
+import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (log, logShow)
 import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Control.Monad.Trans (lift)
 import Data.Argonaut (class DecodeJson)
 import Data.Array ((:))
 import Data.Either (either, Either(Left, Right))
 import Data.Foldable (for_)
 import Data.HTTP.Method (Method(POST))
+import Data.Lazy (defer, force, Lazy)
 import Data.List (List, toUnfoldable)
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 import Data.Traversable (for)
@@ -31,6 +35,14 @@ import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (URL, AJAX)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Text.Parsing.StringParser (Parser, runParser, try)
+
+type SendingEnv = { recipient :: Bot.User
+                  , config :: Bot.MessengerConfig }
+
+type SendingCtx = Reader.ReaderT SendingEnv
+
+runSendingCtx :: forall m a. SendingEnv -> SendingCtx m a -> m a
+runSendingCtx = flip Reader.runReaderT
 
 listToString :: List Char -> String
 listToString = String.fromCharArray <<< toUnfoldable
@@ -75,34 +87,34 @@ sanitizeInput = String.trim >>> String.toLower
 
 withTypingIndicator
   :: forall eff a.
-     Bot.User
-  -> Bot.MessengerConfig
-  -> Aff ( ajax :: AJAX
-         | eff ) a
-  -> Aff ( ajax :: AJAX
-         | eff ) a
-withTypingIndicator sender config fn = do
-    callSendAPI config $ indicator Bot.TypingOn
-    later' typingDelayMillis $ pure unit
-    fn
-    where
-      indicator t = Bot.RspTypingIndicator { indicator: t, recipient: sender }
+     Lazy (Aff ( ajax :: AJAX | eff ) a)
+  -> SendingCtx (Aff ( ajax :: AJAX | eff )) a
+withTypingIndicator fn = do
+    recipient :: Bot.User <- _.recipient <$> Reader.ask
+    let indicator t = Bot.RspTypingIndicator { indicator: t, recipient: recipient }
+    _ <- callSendAPI' $ indicator Bot.TypingOn
+    lift $ later' typingDelayMillis $ pure unit
+    liftAff $ force fn
 
 handleReceivedMessage
-  :: forall e.
+  :: forall eff.
      Bot.MessengerConfig
   -> Bot.MessagingEvent
-  -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, console :: CONSOLE | e) Unit
+  -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, console :: CONSOLE | eff) Unit
 handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: text }, sender }) = do
   let res = runParser commandParser $ sanitizeInput text
-      tmpl :: forall e'. Aff (rethinkdb :: DB.RETHINKDB | e') Bot.Template
+      tmpl :: forall eff'. Aff (rethinkdb :: DB.RETHINKDB | eff') Bot.Template
       tmpl = case res of
               Left err -> pure $ Bot.TmplParseError { err }
               Right cmd -> evalCommand sender cmd
 
-  result <- Ex.try $ launchAff $ do
+  result <- Ex.try <<< launchAff $ do
     rsps <- renderTemplate sender <$> tmpl
-    for rsps $ withTypingIndicator sender config <<< callSendAPI config
+    for rsps \rsp ->
+      runSendingCtx { recipient: sender, config: config } do
+        context <- Reader.ask
+        -- TODO: Figure out how to avoid running the context here again.
+        withTypingIndicator $ defer (\_ -> runSendingCtx context $ callSendAPI' rsp)
 
   case result of
     Right _ -> pure unit
@@ -183,7 +195,7 @@ evalCommand sender = go
 
 callFBAPI
   :: forall req rsp eff.
-   ( DecodeJson rsp , Requestable req )
+   ( DecodeJson rsp, Requestable req )
   => String
   -> Bot.MessengerConfig
   -> req
@@ -202,6 +214,14 @@ callSendAPI
   -> Bot.MessageResponse
   -> Aff (ajax :: AJAX | e) Bot.SendMessageResponse
 callSendAPI = callFBAPI "messages"
+
+callSendAPI'
+  :: forall e.
+     Bot.MessageResponse
+  -> SendingCtx (Aff (ajax :: AJAX | e)) Bot.SendMessageResponse
+callSendAPI' rsp = do
+  config <- _.config <$> Reader.ask
+  liftAff $ callFBAPI "messages" config rsp
 
 callThreadSettingsAPI
   :: forall e.
@@ -257,7 +277,7 @@ listen config = void <<< launchAff $ do
       let tmpl = Bot.TmplPlainText { text: txt }
 
       for_ (renderTemplate user tmpl) $ \rendered -> do
-        e <- attempt $ callSendAPI config rendered
+        e <- attempt $ runSendingCtx { recipient: user, config: config } $ callSendAPI' rendered
         liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
 
     sendServiceDisruptionNote
@@ -276,7 +296,7 @@ listen config = void <<< launchAff $ do
                 , imageUrl: extractInfoImageUrl routeInfo }
 
       for_ (renderTemplate user tmpl) $ \rendered -> do
-        e <- attempt $ callSendAPI config rendered
+        e <- attempt $ runSendingCtx { recipient: user, config: config } $ callSendAPI' rendered
         liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
 
 setupThreadSettings
