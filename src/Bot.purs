@@ -277,7 +277,7 @@ listen config = void <<< launchAff $ do
       let tmpl = Bot.TmplPlainText { text: txt }
 
       for_ (renderTemplate user tmpl) $ \rendered -> do
-        e <- attempt $ callSendAPI config rendered
+        e <- attempt $ runSendingCtx { recipient: user, config: config } $ callSendAPI' rendered
         liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
 
     sendServiceDisruptionNote
@@ -296,7 +296,7 @@ listen config = void <<< launchAff $ do
                 , imageUrl: extractInfoImageUrl routeInfo }
 
       for_ (renderTemplate user tmpl) $ \rendered -> do
-        e <- attempt $ callSendAPI config rendered
+        e <- attempt $ runSendingCtx { recipient: user, config: config } $ callSendAPI' rendered
         liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
 
 setupThreadSettings
