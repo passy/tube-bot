@@ -1,11 +1,15 @@
 ## disruption-fb-bot
 
-https://www.facebook.com/disruptionalerts/
+> A very rudimentary, incomplete Messenger bot for alerting you about Tube
+> disruptions.
 
-## TODO
+This is a hybrid written in JavaScript and PureScript (after I got too tired of
+stacktrace-less runtime errors), powered by a Haskell service, backed by a
+RethinkDB.
 
-- [ ] Send messages when a line is fine again.
-- [ ] Buttons for managing subscriptions.
+Check out
+[passy/disruption-bot-deployment](https://github.com/passy/disruption-bot-deployment)
+for an easy setup.
 
 ## Setup
 
@@ -35,3 +39,12 @@ $ pulp -w build
 - Tick all the boxes in the popup for the messenger, even if we don't use most
   of them at the moment.
 - Check `docker ps` for the host and port of your rethinkdb host.
+
+## Development
+
+Run these in separate terminal multiplexer panels:
+
+```
+$ pulp -w build
+$ npm run watch
+```
