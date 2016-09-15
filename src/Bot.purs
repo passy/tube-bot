@@ -290,12 +290,13 @@ listen config = void <<< launchAff $ do
              , console :: CONSOLE | eff ) Unit
     sendServiceDisruptionNote user routeInfo disruption@(Bot.LineStatusRow { description }) = do
       let title = fromMaybe "Unknown Line" $ extractRouteName <$> routeInfo
-      let tmpl = Bot.TmplGenericImage
-                { title: title
-                , subtitle: pure description
-                , imageUrl: extractInfoImageUrl routeInfo }
+      let headerTmpl = Bot.TmplGenericImage
+            { title: title
+            , subtitle: pure (Bot.showDisruptionLevel <<< Bot.getLevelFromStatusRow $ disruption)
+            , imageUrl: extractInfoImageUrl routeInfo }
+      let infoTmpl = Bot.TmplPlainText { text: description }
 
-      for_ (renderTemplate user tmpl) $ \rendered -> do
+      for_ (join $ renderTemplate user <$> [headerTmpl, infoTmpl]) $ \rendered -> do
         e <- attempt $ runSendingCtx { recipient: user, config: config } $ callSendAPI' rendered
         liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
 

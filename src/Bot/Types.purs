@@ -43,6 +43,14 @@ getLevelFromStatusRow :: LineStatusRow -> DisruptionLevel
 getLevelFromStatusRow (LineStatusRow r) =
   intToDisruptionLevel r.level
 
+showDisruptionLevel :: DisruptionLevel -> String
+showDisruptionLevel = case _ of
+  GoodService -> "Good Service"
+  MinorDelays -> "Minor Delays"
+  SevereDelays -> "Severe Delays"
+  PartSuspended -> "Part Suspended"
+  UnknownLevel i -> "Unknown Status " <> show i
+
 newtype RouteInfoRow = RouteInfoRow
   { name :: RouteName
   , display :: String
