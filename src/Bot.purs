@@ -12,6 +12,7 @@ import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (doJsonRequest)
+import Bot.Types (LineStatusRow(LineStatusRow))
 import Control.Alt ((<|>))
 import Control.Monad.Aff (later', Aff, launchAff, attempt, forkAff)
 import Control.Monad.Aff.Class (liftAff)
@@ -22,6 +23,7 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Control.Monad.Trans (lift)
+import Control.MonadPlus (guard)
 import Data.Argonaut (class DecodeJson)
 import Data.Array ((:))
 import Data.Either (either, Either(Left, Right))
@@ -31,6 +33,7 @@ import Data.Lazy (defer, force, Lazy)
 import Data.List (List, toUnfoldable)
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 import Data.Traversable (for)
+import Data.Tuple (snd, fst, Tuple(Tuple))
 import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (URL, AJAX)
 import Network.HTTP.Affjax.Request (class Requestable)
@@ -235,9 +238,11 @@ listen
      Bot.MessengerConfig
   -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, err :: Ex.EXCEPTION, console :: CONSOLE | e) Unit
 listen config = void <<< launchAff $ do
-  disruption <- DB.disruptionChanges
-  unsafeTrace $ "Obtained new disruption " <> unsafeStringify disruption
+  change <- extractChange <$> DB.disruptionChanges
+  unsafeTrace $ "Obtained new disruption " <> unsafeStringify (fst change)
+  guard $ hasSeverityChanged (fst change) (snd change)
   forkAff $ do
+    let disruption = fst change
     recipients <- DB.findRecipientsForDisruption $ extractDisruptionName disruption
     -- TODO: Exit here if there's no info.
     routeInfo <- DB.findRouteByName $ extractDisruptionName disruption
@@ -247,6 +252,18 @@ listen config = void <<< launchAff $ do
         Bot.GoodService -> forkAff $ sendServiceRecoveryNote user routeInfo disruption
         otherwise -> forkAff $ sendServiceDisruptionNote user routeInfo disruption
   where
+    extractChange :: forall a. DB.RethinkChange a -> Tuple a (Maybe a)
+    extractChange (DB.RethinkChange a) = Tuple a.newVal a.oldVal
+
+    -- | Verify that this is a noteworthy event. The API sometimes reports
+    -- changes from 0 to 0, internally as "unknown" to "good service" which
+    -- shouldn't trigger another message.
+    hasSeverityChanged :: LineStatusRow -> Maybe LineStatusRow -> Boolean
+    hasSeverityChanged (LineStatusRow new) Nothing = true
+    hasSeverityChanged (LineStatusRow new) (Just (LineStatusRow old))
+      | new.level == 0 && old.level == 0 = false
+      | otherwise = true
+
     extractRouteName :: Bot.RouteInfoRow -> String
     extractRouteName (Bot.RouteInfoRow { display }) = display
 

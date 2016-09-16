@@ -5,6 +5,7 @@ module Bot.DB
   , unsubscribeUserFromRoute
   , findRouteByName
   , getAllRoutes
+  , RethinkChange(RethinkChange)
   , RETHINKDB) where
 
 import Prelude
@@ -13,18 +14,26 @@ import Control.Monad.Eff as Eff
 import Bot.Types (RouteName, User(User), RouteInfoRow, LineStatusRow)
 import Control.Monad.Eff.Exception (Error)
 import Data.Array (head)
-import Data.Maybe (Maybe())
+import Data.Maybe (Maybe)
+import Data.Nullable (toMaybe, Nullable)
 
 foreign import data RETHINKDB :: !
+
+newtype RethinkChange a = RethinkChange { newVal :: a, oldVal :: Maybe a }
+
+type RethinkChange_ a = { new_val :: a, old_val :: Nullable a }
 
 foreign import _disruptionChanges
   :: forall e f.
      (Error -> Eff.Eff e Unit)
-  -> (LineStatusRow -> Eff.Eff e Unit)
+  -> (RethinkChange_ LineStatusRow -> Eff.Eff e Unit)
   -> Eff.Eff (rethinkdb :: RETHINKDB | f) Unit
 
-disruptionChanges :: forall e. Aff.Aff (rethinkdb :: RETHINKDB | e) LineStatusRow
-disruptionChanges = Aff.makeAff _disruptionChanges
+disruptionChanges
+  :: forall e.
+     Aff.Aff (rethinkdb :: RETHINKDB | e) (RethinkChange LineStatusRow)
+disruptionChanges = liftChange <$> Aff.makeAff _disruptionChanges
+  where liftChange c = RethinkChange { newVal: c.new_val, oldVal: toMaybe c.old_val }
 
 foreign import _disruptionResolvedChanges
   :: forall e f.
