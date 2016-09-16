@@ -240,7 +240,7 @@ listen
 listen config = void <<< launchAff $ do
   change <- extractChange <$> DB.disruptionChanges
   unsafeTrace $ "Obtained new disruption " <> unsafeStringify (fst change)
-  guard $ hasSeverityChanged (fst change) (snd change)
+  guard $ compareSeverity (fst change) (snd change) == GT
   forkAff $ do
     let disruption = fst change
     recipients <- DB.findRecipientsForDisruption $ extractDisruptionName disruption
@@ -255,14 +255,14 @@ listen config = void <<< launchAff $ do
     extractChange :: forall a. DB.RethinkChange a -> Tuple a (Maybe a)
     extractChange (DB.RethinkChange a) = Tuple a.newVal a.oldVal
 
-    -- | Verify that this is a noteworthy event. The API sometimes reports
-    -- changes from 0 to 0, internally as "unknown" to "good service" which
-    -- shouldn't trigger another message.
-    hasSeverityChanged :: LineStatusRow -> Maybe LineStatusRow -> Boolean
-    hasSeverityChanged (LineStatusRow new) Nothing = true
-    hasSeverityChanged (LineStatusRow new) (Just (LineStatusRow old))
-      | new.level == 0 && old.level == 0 = false
-      | otherwise = true
+    -- | Verify that this is a noteworthy event. We often get flip-flopping
+    -- reports which can get really spammy, so we will only send a message
+    -- if the severity has changed even if there's been an update to the
+    -- message or the stops.
+    compareSeverity :: LineStatusRow -> Maybe LineStatusRow -> Ordering
+    compareSeverity (LineStatusRow new) Nothing = GT
+    compareSeverity (LineStatusRow new) (Just (LineStatusRow old))
+      = compare new.level old.level
 
     extractRouteName :: Bot.RouteInfoRow -> String
     extractRouteName (Bot.RouteInfoRow { display }) = display
