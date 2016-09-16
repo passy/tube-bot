@@ -24,7 +24,7 @@ exports._disruptionChanges = function (eb) {
                         }
 
                         if (row !== null && row.new_val !== null) {
-                            cb({ newVal: row.new_val, oldVal: row.old_val })();
+                            cb(row)();
                         }
                     });
                 });
