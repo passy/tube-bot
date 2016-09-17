@@ -61,7 +61,9 @@ app.post('/webhook', (req, res) => {
             pageEntry.messaging.forEach(function (messagingEvent) {
                 if (messagingEvent.optin) {
                     messenger.receivedAuthentication(messagingEvent);
-                } else if (messagingEvent.message && !messagingEvent.message.is_echo) {
+                } else if (messagingEvent.message && messagingEvent.message.is_echo) {
+                  // Ignoring echos.
+                } else if (messagingEvent.message) {
                     try {
                         Bot.handleReceivedMessage(BOT_CONFIG)(messagingEvent)();
                     } catch (err) {

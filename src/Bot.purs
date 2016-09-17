@@ -106,13 +106,13 @@ handleReceivedMessage
   -> Eff (rethinkdb :: DB.RETHINKDB, ajax :: AJAX, console :: CONSOLE | eff) Unit
 handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: text }, sender }) = do
   let res = runParser commandParser $ sanitizeInput text
-      tmpl :: forall eff'. Aff (rethinkdb :: DB.RETHINKDB | eff') Bot.Template
+      tmpl :: forall eff'. Aff (rethinkdb :: DB.RETHINKDB | eff') (Array Bot.Template)
       tmpl = case res of
-              Left err -> pure $ Bot.TmplParseError { err }
+              Left err -> pure $ pure $ Bot.TmplParseError { err }
               Right cmd -> evalCommand sender cmd
 
   result <- Ex.try <<< launchAff $ do
-    rsps <- renderTemplate sender <$> tmpl
+    rsps <- join <<< map (renderTemplate sender) <$> tmpl
     for rsps \rsp ->
       runSendingCtx { recipient: sender, config: config } do
         context <- Reader.ask
@@ -162,7 +162,7 @@ evalCommand
   :: forall e.
      Bot.User
   -> Bot.Command
-  -> Aff (rethinkdb :: DB.RETHINKDB | e) Bot.Template
+  -> Aff (rethinkdb :: DB.RETHINKDB | e) (Array Bot.Template)
 evalCommand sender = go
   where
     extractRouteName (Bot.RouteInfoRow { display: name }) = name
@@ -171,30 +171,36 @@ evalCommand sender = go
       routeInfo <- DB.findRouteByName channel.route
       case routeInfo of
         Nothing ->
-          pure $ Bot.TmplPlainText { text: "Sorry, I don't know about that line yet." }
+          pure $ pure $ Bot.TmplPlainText { text: "Sorry, I don't know about that line yet." }
         Just r -> do
           DB.subscribeUserToRoute sender channel.route
-          pure $ Bot.TmplPlainText { text: "You will now receive updates for the "
-                                  <> extractRouteName r
-                                  <> " line. Hooray!" }
+          pure $ pure $ Bot.TmplPlainText { text: "You will now receive updates for the "
+                                         <> extractRouteName r
+                                         <> " line. Hooray!" }
 
     go (Bot.CmdUnsubscribe channel) = do
       routeInfo <- DB.findRouteByName channel.route
       case routeInfo of
         Nothing ->
-          pure $ Bot.TmplPlainText { text: "I haven't heard about that line. Sure you're subscribed to it?" }
+          pure $ pure $ Bot.TmplPlainText { text: "I haven't heard about that line. Sure you're subscribed to it?" }
         Just r -> do
           DB.unsubscribeUserFromRoute sender channel.route
-          pure $ Bot.TmplPlainText { text: "Sorry for the noise. You will no longer get updates for the "
-                                  <> extractRouteName r
-                                  <> " line." }
+          let tmpl = Bot.TmplPlainText { text: "Sorry for the noise. You will no longer get updates for the "
+                                      <> extractRouteName r
+                                      <> " line." }
+          pure $ pure $ tmpl
 
     go Bot.CmdListLines = do
       let extract (Bot.RouteInfoRow { display: name }) = "- " <> name
       routes <- map extract <$> DB.getAllRoutes
       let header = "Here's a list of routes you can currently subscribe to:"
+      let linesTmpl = Bot.TmplPlainText { text: header <> "\n" <> String.joinWith "\n" routes }
+      let ctaTmpl =
+            Bot.TmplPlainText
+              { text: "To subscribe to any line, type \"subscribe Line\", "
+                   <> "e.g. \"subscribe Hammersmith & City\"." }
 
-      pure $ Bot.TmplPlainText { text: header <> "\n" <> String.joinWith "\n" routes }
+      pure $ [linesTmpl, ctaTmpl]
 
 callFBAPI
   :: forall req rsp eff.
