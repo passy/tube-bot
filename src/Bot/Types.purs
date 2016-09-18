@@ -23,10 +23,20 @@ newtype LineStatusRow = LineStatusRow
   , disruptions :: Array Disruption
   , level :: Int }
 
+derive instance genericLineStatusRow :: Generic LineStatusRow
+
+instance showLineStatusRow :: Show LineStatusRow where
+  show  = gShow
+
 newtype Disruption = Disruption
   { level :: Int
   , summary :: String
   , stops :: Array String }
+
+derive instance genericDisruption :: Generic Disruption
+
+instance showDisruption :: Show Disruption where
+  show = gShow
 
 data DisruptionLevel =
   GoodService | MinorDelays | SevereDelays | PartSuspended | UnknownLevel Int

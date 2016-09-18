@@ -12,7 +12,6 @@ import Network.HTTP.Affjax as Affjax
 import Text.Parsing.StringParser.Combinators as Parser
 import Text.Parsing.StringParser.String as StringParser
 import Bot.AffjaxHelper (doJsonRequest)
-import Bot.Types (LineStatusRow(LineStatusRow))
 import Control.Alt ((<|>))
 import Control.Monad.Aff (later', Aff, launchAff, attempt, forkAff)
 import Control.Monad.Aff.Class (liftAff)
@@ -31,9 +30,9 @@ import Data.Foldable (for_)
 import Data.HTTP.Method (Method(POST))
 import Data.Lazy (defer, force, Lazy)
 import Data.List (List, toUnfoldable)
-import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
-import Data.Traversable (for)
+import Data.Maybe (Maybe(Just, Nothing))
 import Data.Tuple (snd, fst, Tuple(Tuple))
+import Data.Tuple.Nested ((/\))
 import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (URL, AJAX)
 import Network.HTTP.Affjax.Request (class Requestable)
@@ -290,11 +289,13 @@ listen config = void <<< launchAff $ do
     recipients <- DB.findRecipientsForDisruption $ extractDisruptionName disruption
     -- TODO: Exit here if there's no info.
     routeInfo <- DB.findRouteByName $ extractDisruptionName disruption
-    for recipients \user -> do
+    for_ recipients $ \user -> do
       unsafeTrace $ "Found user: " <> show user
-      case Bot.getLevelFromStatusRow disruption of
-        Bot.GoodService -> forkAff $ sendServiceRecoveryNote user routeInfo disruption
-        otherwise -> forkAff $ sendServiceDisruptionNote user routeInfo disruption
+      case Tuple routeInfo (Bot.getLevelFromStatusRow disruption) of
+        Nothing         /\ _ -> forkAff $ sendErrorMessage user disruption
+        Just routeInfo' /\ Bot.GoodService -> forkAff $ sendServiceRecoveryNote user routeInfo' disruption
+        Just routeInfo' /\ _ -> forkAff $ sendServiceDisruptionNote user routeInfo' disruption
+
   where
     extractChange :: forall a. DB.RethinkChange a -> Tuple a (Maybe a)
     extractChange (DB.RethinkChange a) = Tuple a.newVal a.oldVal
@@ -303,9 +304,9 @@ listen config = void <<< launchAff $ do
     -- reports which can get really spammy, so we will only send a message
     -- if the severity has changed even if there's been an update to the
     -- message or the stops.
-    compareSeverity :: LineStatusRow -> Maybe LineStatusRow -> Ordering
-    compareSeverity (LineStatusRow new) Nothing = GT
-    compareSeverity (LineStatusRow new) (Just (LineStatusRow old))
+    compareSeverity :: Bot.LineStatusRow -> Maybe Bot.LineStatusRow -> Ordering
+    compareSeverity (Bot.LineStatusRow new) Nothing = GT
+    compareSeverity (Bot.LineStatusRow new) (Just (Bot.LineStatusRow old))
       = compare new.level old.level
 
     extractRouteName :: Bot.RouteInfoRow -> String
@@ -315,46 +316,59 @@ listen config = void <<< launchAff $ do
     extractDisruptionName (Bot.LineStatusRow { name }) =
       Bot.normalizeRouteName name
 
-    extractInfoImageUrl :: Maybe Bot.RouteInfoRow -> URL
-    extractInfoImageUrl info =
-      case info of
-        Just r -> roundelUrlFromRoute r
-        Nothing -> "https://cldup.com/WeSoPrcj4I.svg"
+    sendErrorMessage
+      :: forall eff.
+         Bot.User
+      -> Bot.LineStatusRow
+      -> Aff ( console :: CONSOLE
+             , ajax :: AJAX | eff) Unit
+    sendErrorMessage user disruption@(Bot.LineStatusRow { name: (Bot.RouteName name) }) = do
+      log $ "ERR: Couldn't look up line info for disruption " <> show disruption
+      let header =
+            """My systems are running in a degraded mode, but there's a new
+            disruption:
+            """
+      let severity = Bot.getLevelFromStatusRow >>> Bot.showDisruptionLevel $ disruption
+      let msg = severity <> " on the " <> name <> " line\n"
+      let footer = "Sorry, this is all I know."
 
-    -- TODO: Shouldn't accept a Maybe for the route info.
+      let tmpl = Bot.TmplPlainText { text: header <> msg <> footer }
+
+      for_ (renderTemplate user tmpl) $ \rendered -> do
+        e <- attempt $ runSendingCtx { recipient: user, config: config } $ callSendAPI' rendered
+        either (log <<< Ex.message) (const $ pure unit) e
+
     sendServiceRecoveryNote
       :: forall eff.
          Bot.User
-      -> Maybe Bot.RouteInfoRow
+      -> Bot.RouteInfoRow
       -> Bot.LineStatusRow
       -> Aff ( ajax :: AJAX
              , rethinkdb :: DB.RETHINKDB
              , console :: CONSOLE | eff) Unit
-    sendServiceRecoveryNote user routeInfo disruption = do
-      let title = fromMaybe "Unknown Line" $ extractRouteName <$> routeInfo
-      let txt = ( title
+    sendServiceRecoveryNote user (Bot.RouteInfoRow { display }) disruption = do
+      let txt = ( display
                <> ": The line has recovered and is operating again "
                <> "with a good service on the entire line. \\o/" )
       let tmpl = Bot.TmplPlainText { text: txt }
 
       for_ (renderTemplate user tmpl) $ \rendered -> do
         e <- attempt $ runSendingCtx { recipient: user, config: config } $ callSendAPI' rendered
-        liftEff $ either (EffConsole.log <<< Ex.message) (const $ pure unit) e
+        either (log <<< Ex.message) (const $ pure unit) e
 
     sendServiceDisruptionNote
       :: forall eff.
          Bot.User
-      -> Maybe Bot.RouteInfoRow
+      -> Bot.RouteInfoRow
       -> Bot.LineStatusRow
       -> Aff ( ajax :: AJAX
              , rethinkdb :: DB.RETHINKDB
              , console :: CONSOLE | eff ) Unit
-    sendServiceDisruptionNote user routeInfo disruption@(Bot.LineStatusRow { description }) = do
-      let title = fromMaybe "Unknown Line" $ extractRouteName <$> routeInfo
+    sendServiceDisruptionNote user routeInfo@(Bot.RouteInfoRow { display }) disruption@(Bot.LineStatusRow { description }) = do
       let headerTmpl = Bot.TmplGenericImage
-            { title: title
+            { title: display
             , subtitle: pure (Bot.showDisruptionLevel <<< Bot.getLevelFromStatusRow $ disruption)
-            , imageUrl: extractInfoImageUrl routeInfo }
+            , imageUrl: roundelUrlFromRoute routeInfo }
       let infoTmpl = Bot.TmplPlainText { text: description }
 
       for_ (join $ renderTemplate user <$> [headerTmpl, infoTmpl]) $ \rendered -> do
