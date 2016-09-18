@@ -86,11 +86,20 @@ listLinesParser cmd = try $ do
   void $ StringParser.string "lines" <|> StringParser.string "routes"
   pure cmd
 
+helloParser
+  :: Bot.Command
+  -> Parser Bot.Command
+helloParser cmd = do
+  void $ StringParser.string "hello" <|> StringParser.string "hi"
+  void $ Parser.manyTill StringParser.anyChar StringParser.eof
+  pure cmd
+
 commandParser :: Parser Bot.Command
 commandParser =
   channelCommandParser "subscribe" Bot.CmdSubscribe
     <|> channelCommandParser "unsubscribe" Bot.CmdUnsubscribe
     <|> listLinesParser Bot.CmdListLines
+    <|> helloParser Bot.CmdHello
 
 sanitizeInput :: String -> String
 sanitizeInput = String.trim >>> String.toLower
@@ -139,12 +148,20 @@ segmentResponse
 segmentResponse maxLength txt mapfn =
   mapfn <$> Strings.segmentMessage maxLength txt
 
+segmentPlainText
+  :: Int
+  -> Bot.User
+  -> String
+  -> Array Bot.MessageResponse
+segmentPlainText maxLength user text =
+  Bot.RspText <$> segmentResponse maxMessageLength text (\t -> { text: t, recipient: user })
+
 renderTemplate
   :: Bot.User
   -> Bot.Template
   -> Array Bot.MessageResponse
 renderTemplate user (Bot.TmplPlainText { text }) =
-  Bot.RspText <$> segmentResponse maxMessageLength text (\t -> { text: t, recipient: user })
+  segmentPlainText maxMessageLength user text
 renderTemplate user (Bot.TmplGenericError { err }) =
   pure $ Bot.RspText { text: String.take maxMessageLength $ "Sorry, an error has occurred: " <> Ex.message err
                      , recipient: user }
@@ -153,7 +170,7 @@ renderTemplate user (Bot.TmplParseError { err }) =
         Bot.RspText { text: String.take maxMessageLength $ "Sorry, I didn't get that. Error: " <> show err
                     , recipient: user }
       ctaRsps =
-        Bot.RspText <$> segmentResponse maxMessageLength helpText (\t -> { text: t, recipient: user })
+        segmentPlainText maxMessageLength user helpText
   in errorRsp : ctaRsps
 renderTemplate user (Bot.TmplImage { imageUrl }) =
   let att = Bot.AttImage { url: imageUrl }
@@ -211,7 +228,17 @@ evalCommand sender = go
               { text: "To subscribe to any line, type \"subscribe Line\", "
                    <> "e.g. \"subscribe Hammersmith & City\"." }
 
-      pure $ [linesTmpl, ctaTmpl]
+      pure [linesTmpl, ctaTmpl]
+
+    go Bot.CmdHello = do
+      let txt = """Why hello there!
+      I'm Tube Bot and I can give you updates on TfL service disruptions. Just
+      send one of these commands commands to get started.
+      """
+      let helloTmpl = Bot.TmplPlainText { text: txt }
+      let helpTmpl = Bot.TmplPlainText { text: helpText }
+
+      pure [helloTmpl, helpTmpl]
 
 callFBAPI
   :: forall req rsp eff.
@@ -340,6 +367,6 @@ setupThreadSettings
   -> Eff (ajax :: AJAX, err :: Ex.EXCEPTION, console :: CONSOLE | e) Unit
 setupThreadSettings config = void <<< launchAff $ do
   log $ "Setting up thread."
-  let greeting = Bot.Greeting { text: "Welcome to Disruption Bot! Say 'subscribe <line>' to get update for any London Underground line." }
+  let greeting = Bot.Greeting { text: "Welcome to Tube Bot! Why not say hi?" }
   res <- callThreadSettingsAPI config greeting
   logShow res
