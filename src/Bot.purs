@@ -60,6 +60,13 @@ roundelUrlFromRoute :: Bot.RouteInfoRow -> URL
 roundelUrlFromRoute (Bot.RouteInfoRow { color: Bot.HexColor c }) =
   "https://tube-roundel.rdrei.net/roundel/no-text/" <> String.drop 1 c <> "/image.png"
 
+helpText :: String
+helpText = """Tube Bot understands the following commands:
+- "list lines" - Show all available lines.
+- "subscribe <line>" - Subscribe disruption alerts for a given line.
+- "unsubscribe <line>" - Unsubscribe to no longer receive alerts for a given line.
+"""
+
 channelCommandParser
   :: String
   -> ({ route :: Bot.RouteName } -> Bot.Command)
@@ -142,8 +149,12 @@ renderTemplate user (Bot.TmplGenericError { err }) =
   pure $ Bot.RspText { text: String.take maxMessageLength $ "Sorry, an error has occurred: " <> Ex.message err
                      , recipient: user }
 renderTemplate user (Bot.TmplParseError { err }) =
-  pure $ Bot.RspText { text: String.take maxMessageLength $ "Sorry, I didn't get that. Error: " <> show err
-                     , recipient: user }
+  let errorRsp =
+        Bot.RspText { text: String.take maxMessageLength $ "Sorry, I didn't get that. Error: " <> show err
+                    , recipient: user }
+      ctaRsps =
+        Bot.RspText <$> segmentResponse maxMessageLength helpText (\t -> { text: t, recipient: user })
+  in errorRsp : ctaRsps
 renderTemplate user (Bot.TmplImage { imageUrl }) =
   let att = Bot.AttImage { url: imageUrl }
   in pure $ Bot.RspAttachment { attachment: att
