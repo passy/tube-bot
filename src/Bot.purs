@@ -113,7 +113,7 @@ handleReceivedMessage config (Bot.MessagingEvent { message: Bot.Message { text: 
 
   result <- Ex.try <<< launchAff $ do
     rsps <- join <<< map (renderTemplate sender) <$> tmpl
-    for rsps \rsp ->
+    for_ rsps \rsp ->
       runSendingCtx { recipient: sender, config: config } do
         context <- Reader.ask
         -- TODO: Figure out how to avoid running the context here again.
