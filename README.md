@@ -1,5 +1,7 @@
 ## disruption-fb-bot
 
+[![Build Status](https://travis-ci.org/passy/tube-bot.svg?branch=master)](https://travis-ci.org/passy/tube-bot)
+
 > A very rudimentary, incomplete Messenger bot for alerting you about Tube
 > disruptions.
 
