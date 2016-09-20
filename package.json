@@ -1,6 +1,6 @@
 {
   "name": "tube-bot",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "TfL Disruption FB Messenger Bot",
   "main": "index.js",
   "dependencies": {
