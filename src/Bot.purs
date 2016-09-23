@@ -112,8 +112,9 @@ withTypingIndicator fn = do
     let indicator t = Bot.RspTypingIndicator { indicator: t, recipient: recipient }
     _ <- callSendAPI' $ indicator Bot.TypingOn
     lift $ later' typingDelayMillis $ pure unit
-    liftAff $ force fn
-    _ <- callSendAPI' $ indicator Bot.TypingOff
+    res <- liftAff $ force fn
+    callSendAPI' $ indicator Bot.TypingOff
+    pure res
 
 handleReceivedMessage
   :: forall eff.
