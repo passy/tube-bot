@@ -113,6 +113,7 @@ withTypingIndicator fn = do
     _ <- callSendAPI' $ indicator Bot.TypingOn
     lift $ later' typingDelayMillis $ pure unit
     liftAff $ force fn
+    _ <- callSendAPI' $ indicator Bot.TypingOff
 
 handleReceivedMessage
   :: forall eff.
