@@ -1,6 +1,7 @@
 ## disruption-fb-bot
 
 [![Build Status](https://travis-ci.org/passy/tube-bot.svg?branch=master)](https://travis-ci.org/passy/tube-bot)
+[![](https://images.microbadger.com/badges/version/passy/tube-bot.svg)](https://microbadger.com/images/passy/tube-bot "Get your own version badge on microbadger.com")
 
 > A very rudimentary, incomplete Messenger bot for alerting you about Tube
 > disruptions.
