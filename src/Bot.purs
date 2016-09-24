@@ -1,17 +1,9 @@
 module Bot where
 
-import Prelude
+import Bot.AffjaxHelper (doJsonRequest)
 import Bot.DB as DB
 import Bot.Strings as Strings
 import Bot.Types as Bot
-import Control.Monad.Eff.Console as EffConsole
-import Control.Monad.Eff.Exception as Ex
-import Control.Monad.Reader as Reader
-import Data.String as String
-import Network.HTTP.Affjax as Affjax
-import Text.Parsing.StringParser.Combinators as Parser
-import Text.Parsing.StringParser.String as StringParser
-import Bot.AffjaxHelper (doJsonRequest)
 import Control.Alt ((<|>))
 import Control.Monad.Aff (later', Aff, launchAff, attempt, forkAff)
 import Control.Monad.Aff.Class (liftAff)
@@ -20,7 +12,10 @@ import Control.Monad.Aff.Unsafe (unsafeTrace)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE)
+import Control.Monad.Eff.Console as EffConsole
+import Control.Monad.Eff.Exception as Ex
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Control.Monad.Reader as Reader
 import Control.Monad.Trans (lift)
 import Control.MonadPlus (guard)
 import Data.Argonaut (class DecodeJson)
@@ -31,12 +26,17 @@ import Data.HTTP.Method (Method(POST))
 import Data.Lazy (defer, force, Lazy)
 import Data.List (List, toUnfoldable)
 import Data.Maybe (Maybe(Just, Nothing))
+import Data.String as String
 import Data.Tuple (snd, fst, Tuple(Tuple))
 import Data.Tuple.Nested ((/\))
 import Global.Unsafe (unsafeStringify)
 import Network.HTTP.Affjax (URL, AJAX)
+import Network.HTTP.Affjax as Affjax
 import Network.HTTP.Affjax.Request (class Requestable)
+import Prelude
 import Text.Parsing.StringParser (Parser, runParser, try)
+import Text.Parsing.StringParser.Combinators as Parser
+import Text.Parsing.StringParser.String as StringParser
 
 type SendingEnv = { recipient :: Bot.User
                   , config :: Bot.MessengerConfig }

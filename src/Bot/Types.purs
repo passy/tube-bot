@@ -1,17 +1,17 @@
 module Bot.Types where
 
-import Prelude
-import Data.Argonaut as J
-import Data.String as S
 import Bot.JsonHelper ((.??))
 import Control.Alt ((<|>))
 import Control.Error.Util (note)
 import Control.Monad.Eff.Exception (Error)
 import Data.Argonaut ((~>), (:=), (.?))
+import Data.Argonaut as J
 import Data.Generic (class Generic, gEq, gShow)
 import Data.Maybe (Maybe(Just, Nothing))
+import Data.String as S
 import Network.HTTP.Affjax (URL)
 import Network.HTTP.Affjax.Request (toRequest, class Requestable)
+import Prelude
 import Text.Parsing.StringParser (ParseError)
 
 type SequenceNumber = Int
