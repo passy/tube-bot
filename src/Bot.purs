@@ -17,7 +17,6 @@ import Control.Monad.Eff.Exception as Ex
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Control.Monad.Reader as Reader
 import Control.Monad.Trans (lift)
-import Control.MonadPlus (guard)
 import Data.Argonaut (class DecodeJson)
 import Data.Array ((:))
 import Data.Either (either, Either(Left, Right))
@@ -285,20 +284,19 @@ listen
 listen config = void <<< launchAff $ do
   change <- extractChange <$> DB.disruptionChanges
   unsafeTrace $ "Obtained new disruption " <> unsafeStringify (fst change)
-  guard $ compareSeverity (fst change) (snd change) == GT
-  forkAff $ do
-    let disruption = fst change
-    recipients <- DB.findRecipientsForDisruption $ extractDisruptionName disruption
-    -- TODO: Exit here if there's no info.
-    routeInfo <- DB.findRouteByName $ extractDisruptionName disruption
-    for_ recipients $ \user -> do
-      unsafeTrace $ "Found user: " <> show user
-      case Tuple routeInfo (Bot.getLevelFromStatusRow disruption) of
-        Nothing         /\ _ -> forkAff $ sendErrorMessage user disruption
-        Just routeInfo' /\ Bot.GoodService -> forkAff $ sendServiceRecoveryNote user routeInfo' disruption
-        Just routeInfo' /\ _ -> forkAff $ sendServiceDisruptionNote user routeInfo' disruption
-
+  if isImportant (fst change) (snd change)
+    then void $ forkAff <<< sendNote $ fst change
+    else unsafeTrace $ "Ignoring disruption change without important change."
   where
+    sendNote disruption = do
+      recipients <- DB.findRecipientsForDisruption $ extractDisruptionName disruption
+      routeInfo <- DB.findRouteByName $ extractDisruptionName disruption
+      for_ recipients $ \user -> do
+        case Tuple routeInfo (Bot.getLevelFromStatusRow disruption) of
+          Nothing         /\ _ -> forkAff $ sendErrorMessage user disruption
+          Just routeInfo' /\ Bot.GoodService -> forkAff $ sendServiceRecoveryNote user routeInfo' disruption
+          Just routeInfo' /\ _ -> forkAff $ sendServiceDisruptionNote user routeInfo' disruption
+    
     extractChange :: forall a. DB.RethinkChange a -> Tuple a (Maybe a)
     extractChange (DB.RethinkChange a) = Tuple a.newVal a.oldVal
 
@@ -306,10 +304,10 @@ listen config = void <<< launchAff $ do
     -- reports which can get really spammy, so we will only send a message
     -- if the severity has changed even if there's been an update to the
     -- message or the stops.
-    compareSeverity :: Bot.LineStatusRow -> Maybe Bot.LineStatusRow -> Ordering
-    compareSeverity (Bot.LineStatusRow new) Nothing = GT
-    compareSeverity (Bot.LineStatusRow new) (Just (Bot.LineStatusRow old))
-      = compare new.level old.level
+    isImportant :: Bot.LineStatusRow -> Maybe Bot.LineStatusRow -> Boolean
+    isImportant (Bot.LineStatusRow new) Nothing = true
+    isImportant (Bot.LineStatusRow new) (Just (Bot.LineStatusRow old))
+      = new.level > old.level || new.level == 0
 
     extractRouteName :: Bot.RouteInfoRow -> String
     extractRouteName (Bot.RouteInfoRow { display }) = display
