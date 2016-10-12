@@ -17,7 +17,7 @@ for an easy setup.
 ## Setup
 
 ```
-$ npm install
+$ yarn
 $ npm run build
 $ docker run rethink:2.3
 # For prod-ish use.
