@@ -6,7 +6,7 @@ import Data.Array (null, (:), snoc)
 import Data.Foldable (foldl)
 
 lines :: String -> Array String
-lines = S.split "\n"
+lines = S.split $ S.Pattern "\n"
 
 unlines :: Array String -> String
 unlines = S.joinWith "\n"
