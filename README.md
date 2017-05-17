@@ -1,5 +1,7 @@
 ## disruption-fb-bot
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/passy/tube-bot.svg)](https://greenkeeper.io/)
+
 [![Build Status](https://travis-ci.org/passy/tube-bot.svg?branch=master)](https://travis-ci.org/passy/tube-bot)
 [![](https://images.microbadger.com/badges/version/passy/tube-bot.svg)](https://microbadger.com/images/passy/tube-bot "Get your own version badge on microbadger.com")
 
